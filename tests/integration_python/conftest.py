@@ -52,7 +52,7 @@ def pixi() -> Path:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def build_backends() -> None:
+def build_backends(load_dotenv: None) -> None:
     """
     Sets up build backend environment variables for testing.
 
