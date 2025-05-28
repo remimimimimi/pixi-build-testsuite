@@ -94,7 +94,7 @@ def build_backends(load_dotenv: None) -> None:
 
         override_parts.append(f"{backend}={backend_path}")
 
-    override_value = "::".join(override_parts)
+    override_value = ",".join(override_parts)
     os.environ["PIXI_BUILD_BACKEND_OVERRIDE"] = override_value
 
 
