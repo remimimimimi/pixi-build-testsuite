@@ -43,6 +43,7 @@ test-specific-test = { cmd = "pytest -k {{ test_substring }}", args = [
 update-test-channel = { cmd = "python update-channels.py {{ channel }}", args = [
   "channel",
 ], cwd = "tests/data/channels" }
+build-repos = { cmd = "python scripts/build_repos.py", description = "Update and build external repositories (PIXI and BUILD_BACKENDS)" }
 
 
 [feature.lint.dependencies]
