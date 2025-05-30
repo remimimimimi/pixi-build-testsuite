@@ -11,3 +11,4 @@ site/
 pytest-temp
 /vendor
 .env
+pixi_home
