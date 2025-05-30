@@ -14,6 +14,6 @@ packages:
   subdir: osx-arm64
   license: Apache-2.0
   input:
-    hash: d33e5627b994f971042f95e528bf129c4ff8b0a5f83e79db15477b3fd965667b
+    hash: 96b8abf769786531d186ea41acb6fe54ae980c8167d693daeb1605e291a68dc2
     globs:
     - recipe.yaml

@@ -5,7 +5,7 @@ set -ex
 # toolchain flags + bzip flags + fpic
 export CFLAGS="${CFLAGS} -Wall -Winline -O2 -g -D_FILE_OFFSET_BITS=64 -fPIC"
 USED_CC=${GCC:-${CC}}
-make install PREFIX=${PREFIX} CFLAGS="${CFLAGS}" CC="${USED_CC}"
+make install PREFIX="${PREFIX}" CFLAGS="${CFLAGS}" CC="${USED_CC}"
 
 # build shared library
 if [[ ${target_platform} =~ .*linux.* ]]; then
