@@ -103,6 +103,7 @@ jobs:
           workflow: CI.yml
           branch: main
           name: pixi-linux-x86_64
+          name_is_regexp: true
           path: ${{ env.PIXI_HOME }}/bin
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup unix binary, add to github path
