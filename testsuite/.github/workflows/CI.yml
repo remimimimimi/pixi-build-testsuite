@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  pull_request:
+    types:
+      - labeled
+      - synchronize
+      - opened
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
+  XDG_CACHE_HOME: ${{ github.workspace }}/.cache
+  PYTEST_ADDOPTS: "--color=yes"
+
+
+jobs:
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@main
+        with:
+          environments: lint
+      - name: pre-commit
+        run: pixi run pre-commit-run --color=always --show-diff-on-failure
+
+  #
+  # Run integration tests on important platforms
+  #
+
+  # test-pytest-windows-x86_64:
+  #   timeout-minutes: 10
+  #   name: Pytest | windows x86_64
+  #   runs-on: windows-latest
+  #   needs: build-binary-windows-x86_64
+  #   env:
+  #     TARGET_RELEASE: "target/pixi/release"
+  #   steps:
+  #     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+  #     - name: Create Dev Drive
+  #       run: ${{ github.workspace }}/.github/workflows/setup-dev-drive.ps1
+  #     - name: Copy Git Repo to Dev Drive
+  #       run: |
+  #         Copy-Item -Path "${{ github.workspace }}" -Destination "${{ env.PIXI_WORKSPACE }}" -Recurse
+  #         echo "${{ env.PIXI_WORKSPACE }}/${{ env.TARGET_RELEASE }}" | Out-File -Append -Encoding utf8 -FilePath $env:GITHUB_PATH
+  #     - name: Download binary from build
+  #       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+  #       with:
+  #         name: pixi-windows-x86_64-${{ github.sha }}
+  #         path: ${{ env.PIXI_WORKSPACE }}/${{ env.TARGET_RELEASE }}
+  #     - name: Verify pixi installation
+  #       working-directory: ${{ env.PIXI_WORKSPACE }}
+  #       run: pixi info
+
+  #     - name: Run pytests
+  #       working-directory: ${{ env.PIXI_WORKSPACE }}
+  #       run: pixi run --locked test-integration-ci
+
+  # test-pytest-macos-aarch64:
+  #   timeout-minutes: 10
+  #   name: Pytest | macos aarch64
+  #   runs-on: macos-14
+  #   needs: build-binary-macos-aarch64
+  #   env:
+  #     TARGET_RELEASE: "${{ github.workspace }}/target/pixi/release"
+  #   steps:
+  #     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+  #     - name: Download binary from build
+  #       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+  #       with:
+  #         name: pixi-macos-aarch64-${{ github.sha }}
+  #         path: ${{ env.TARGET_RELEASE }}
+  #     - name: Setup unix binary, add to github path
+  #       run: |
+  #         chmod a+x ${{ env.TARGET_RELEASE }}/pixi
+  #         echo "${{ env.TARGET_RELEASE }}" >> $GITHUB_PATH
+  #     - name: Verify pixi installation
+  #       run: pixi info
+
+  #     - name: Run integration tests
+  #       run: pixi run --locked test-integration-ci
+
+  test-pytest-linux-x86_64:
+    timeout-minutes: 10
+    name: Pytest | linux x86_64
+    runs-on: 8core_ubuntu_latest_runner
+    env:
+      PIXI_HOME: "${{ github.workspace }}/pixi_home"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Download pixi binary from prefix-dev/pixi repository
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          repo: prefix-dev/pixi
+          workflow: CI.yml
+          branch: main
+          name: pixi-linux-x86_64
+          path: ${{ env.PIXI_HOME }}/bin
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup unix binary, add to github path
+        run: |
+          chmod a+x ${{ env.PIXI_HOME }}/bin/pixi
+          echo "${{ env.PIXI_HOME }}/bin" >> $GITHUB_PATH
+      - name: Verify pixi installation
+        run: pixi info
+
+      - name: Run integration tests
+        run: pixi run --locked test-integration-slow
+
+  
