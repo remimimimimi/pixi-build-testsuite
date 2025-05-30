@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 import pytest
 
-from ..common import CURRENT_PLATFORM, verify_cli_command
+from .common import CURRENT_PLATFORM, verify_cli_command
 
 
 @pytest.mark.slow
