@@ -102,11 +102,11 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
-      - name: Download pixi binary from prefix-dev/pixi repository
+      - name: Download artifacts from prefix-dev/pixi repository
         run: |
           pixi run download-artifacts pixi --token "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Download pixi binary from prefix-dev/pixi-build-backends repository
+      - name: Download artifacts from prefix-dev/pixi-build-backends repository
         run: |
           pixi run download-artifacts pixi-build-backends --token "${{ secrets.GITHUB_TOKEN }}"
 
