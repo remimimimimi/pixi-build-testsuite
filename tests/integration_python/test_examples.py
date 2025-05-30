@@ -2,7 +2,7 @@ from pathlib import Path
 import pytest
 import shutil
 
-from ..common import verify_cli_command, get_manifest, repo_root
+from .common import verify_cli_command, get_manifest, repo_root
 
 
 @pytest.mark.slow

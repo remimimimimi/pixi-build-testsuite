@@ -4,7 +4,7 @@ import json
 import pytest
 from .conftest import Workspace
 
-from ..common import ExitCode, verify_cli_command
+from .common import ExitCode, verify_cli_command
 
 
 def test_build_conda_package(
