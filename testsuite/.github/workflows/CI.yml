@@ -96,20 +96,19 @@ jobs:
       PIXI_HOME: "${{ github.workspace }}/pixi_home"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Download pixi binary from prefix-dev/pixi repository
-        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
+      - name: Set up pixi for downloading binary
+        uses: prefix-dev/setup-pixi@main
         with:
-          repo: prefix-dev/pixi
-          workflow: CI.yml
-          branch: main
-          name: pixi-linux-x86_64
-          name_is_regexp: true
-          path: ${{ env.PIXI_HOME }}/bin
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Setup unix binary, add to github path
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+
+      - name: Download pixi binary from prefix-dev/pixi repository
         run: |
-          chmod a+x ${{ env.PIXI_HOME }}/bin/pixi
-          echo "${{ env.PIXI_HOME }}/bin" >> $GITHUB_PATH
+          python scripts/download_pixi_binary.py \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --output-dir "${{ env.PIXI_HOME }}/bin" \
+            --platform "linux-x86_64" \
+            --branch "main"
       - name: Verify pixi installation
         run: pixi info
 
