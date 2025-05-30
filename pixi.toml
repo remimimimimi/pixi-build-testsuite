@@ -25,8 +25,8 @@ types-pyyaml = ">=6.0.12.20241230,<7"
 
 
 [tasks]
-test = "pytest --numprocesses=auto --durations=0 --timeout=100 -m 'not extra_slow' tests/integration_python"
-test-extra-slow = "pytest --numprocesses=auto --durations=0 --timeout=600 tests/integration_python"
+test = "pytest --numprocesses=auto --durations=0 --timeout=100 -m 'not slow' tests/integration_python"
+test-slow = "pytest --numprocesses=auto --durations=0 --timeout=600 tests/integration_python"
 
 # pass the file to run as an argument to the task
 # you can also pass a specific test function, like this:

@@ -266,7 +266,7 @@ def test_non_editable_pyproject(pixi: Path, build_data: Path, tmp_pixi_workspace
     )
 
 
-@pytest.mark.extra_slow
+@pytest.mark.slow
 def test_build_using_rattler_build_backend(
     pixi: Path,
     tmp_pixi_workspace: Path,
@@ -292,7 +292,7 @@ def test_build_using_rattler_build_backend(
     assert package_to_be_built.exists()
 
 
-@pytest.mark.extra_slow
+@pytest.mark.slow
 def test_smokey(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     test_data = build_data.joinpath("rattler-build-backend")
     # copy the whole smokey project to the tmp_pixi_workspace

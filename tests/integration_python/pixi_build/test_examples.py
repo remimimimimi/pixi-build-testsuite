@@ -5,7 +5,7 @@ import shutil
 from ..common import verify_cli_command, get_manifest, repo_root
 
 
-@pytest.mark.extra_slow
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "pixi_project",
     [
