@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 from github import Github
+from github.Artifact import Artifact
 from rich.console import Console
 from rich.progress import track
 
@@ -61,7 +62,7 @@ def get_conda_target() -> str:
 
 
 def download_and_extract_artifact(
-    target_artifact, github_token: str | None, output_dir: Path, artifact_type: str
+    target_artifact: Artifact, github_token: str | None, output_dir: Path, artifact_type: str
 ) -> None:
     """Download and extract artifact, return path to extracted binary."""
     # Download the artifact
@@ -231,6 +232,7 @@ def download_github_artifact(
             console.print("[red]No successful workflow runs found on main branch")
             raise ValueError("No successful workflow runs found on main branch")
 
+    assert latest_run is not None
     console.print(f"[blue]Latest successful run: {latest_run.id} from {latest_run.created_at}")
 
     # Get artifacts for this run
@@ -271,7 +273,7 @@ def download_github_artifact(
     download_and_extract_artifact(target_artifact, github_token, output_dir, artifact_type)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Download artifacts from GitHub Actions")
     parser.add_argument(
         "--token",

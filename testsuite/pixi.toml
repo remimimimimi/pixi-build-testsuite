@@ -39,7 +39,7 @@ test-specific-test = { cmd = "pytest -k {{ test_substring }}", args = [
 # Update one test channel by passing on value of `mappings.toml`
 # e.g. "multiple_versions_channel_1"
 build-repos = { cmd = "python scripts/build_repos.py", description = "Update and build external repositories (PIXI and BUILD_BACKENDS)" }
-download-artifacts = { cmd = "python scripts/download_artifacts.py"}
+download-artifacts = { cmd = "python scripts/download_artifacts.py" }
 update-test-channel = { cmd = "python update-channels.py {{ channel }}", args = [
   "channel",
 ], cwd = "tests/data/channels" }
