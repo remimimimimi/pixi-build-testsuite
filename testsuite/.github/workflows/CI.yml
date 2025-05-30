@@ -104,13 +104,11 @@ jobs:
 
       - name: Download pixi binary from prefix-dev/pixi repository
         run: |
-          pixi run download-pixi \
-            --token "${{ secrets.GITHUB_TOKEN }}" \
-            --output-dir "${{ env.PIXI_HOME }}/bin" \
-            --repo "prefix-dev/pixi" \
-            --workflow "CI"
-      - name: Verify pixi installation
-        run: pixi info
+          pixi run download-artifacts pixi --token "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Download pixi binary from prefix-dev/pixi-build-backends repository
+        run: |
+          pixi run download-artifacts pixi-build-backends --token "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Run integration tests
         run: pixi run --locked test
