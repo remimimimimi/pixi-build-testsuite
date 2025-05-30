@@ -33,4 +33,4 @@ pixi run test
 
 
 [Pixi]: https://github.com/prefix-dev/pixi
-[pixi-build-backends]: https://github.com/prefix-dev/pixi-build-backends 
+[pixi-build-backends]: https://github.com/prefix-dev/pixi-build-backends

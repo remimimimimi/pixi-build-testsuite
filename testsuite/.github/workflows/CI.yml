@@ -20,9 +20,7 @@ env:
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
   PYTEST_ADDOPTS: "--color=yes"
 
-
 jobs:
-
   pre-commit:
     runs-on: ubuntu-latest
     steps:
@@ -116,5 +114,3 @@ jobs:
 
       - name: Run integration tests
         run: pixi run --locked test-integration-slow
-
-  
