@@ -6,7 +6,6 @@ import pytest
 from .common import get_manifest, repo_root, verify_cli_command
 
 
-@pytest.mark.skip(reason="Let's skip them for now, and only run them on main in the long run")
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "pixi_project",
