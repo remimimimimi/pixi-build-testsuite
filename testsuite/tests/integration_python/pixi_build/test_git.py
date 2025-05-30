@@ -5,7 +5,7 @@ import pytest
 from ..common import CURRENT_PLATFORM, verify_cli_command
 
 
-@pytest.mark.extra_slow
+@pytest.mark.slow
 def test_build_git_source_deps(pixi: Path, tmp_pixi_workspace: Path, build_data: Path) -> None:
     """
     This one tries to build the rich example project
@@ -88,7 +88,7 @@ def test_build_git_source_deps(pixi: Path, tmp_pixi_workspace: Path, build_data:
     )
 
 
-@pytest.mark.extra_slow
+@pytest.mark.slow
 def test_build_git_source_deps_from_branch(
     pixi: Path, tmp_pixi_workspace: Path, build_data: Path
 ) -> None:
@@ -154,7 +154,7 @@ def test_build_git_source_deps_from_branch(
     )
 
 
-@pytest.mark.extra_slow
+@pytest.mark.slow
 def test_build_git_source_deps_from_rev(
     pixi: Path, tmp_pixi_workspace: Path, build_data: Path
 ) -> None:
