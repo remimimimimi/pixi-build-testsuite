@@ -36,8 +36,32 @@ def get_current_platform() -> str:
     raise ValueError(f"Unsupported platform: {system}-{machine}")
 
 
+def get_conda_target() -> str:
+    """Get the conda target string for conda package artifacts."""
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+
+    if system == "linux":
+        if machine in ["x86_64", "amd64"]:
+            return "linux-64"
+        elif machine in ["aarch64", "arm64"]:
+            return "linux-aarch64"
+        elif machine in ["ppc64le"]:
+            return "linux-ppc64le"
+    elif system == "darwin":
+        if machine in ["arm64", "aarch64"]:
+            return "osx-arm64"
+        elif machine in ["x86_64", "amd64"]:
+            return "osx-64"
+    elif system == "windows":
+        if machine in ["x86_64", "amd64"]:
+            return "win-64"
+
+    raise ValueError(f"Unsupported platform: {system}-{machine}")
+
+
 def download_and_extract_artifact(
-    target_artifact, github_token: str | None, output_dir: Path
+    target_artifact, github_token: str | None, output_dir: Path, artifact_type: str = "pixi"
 ) -> None:
     """Download and extract artifact, return path to extracted binary."""
     # Download the artifact
@@ -71,7 +95,7 @@ def download_and_extract_artifact(
 
             temp_zip_path = temp_file.name
 
-    console.print("[blue]Extracting binary...")
+    console.print("[blue]Extracting artifact...")
 
     # Extract the zip file
     with zipfile.ZipFile(temp_zip_path, "r") as zip_ref:
@@ -79,49 +103,87 @@ def download_and_extract_artifact(
         file_list = zip_ref.namelist()
         console.print(f"[blue]Archive contents: {file_list}")
 
-        # Find the pixi binary
-        pixi_binary = None
-        for file_name in file_list:
-            if file_name == "pixi" or file_name.endswith("/pixi") or file_name.endswith("pixi.exe"):
-                pixi_binary = file_name
-                break
+        if artifact_type == "pixi":
+            # Find the pixi binary
+            pixi_binary = None
+            for file_name in file_list:
+                if (
+                    file_name == "pixi"
+                    or file_name.endswith("/pixi")
+                    or file_name.endswith("pixi.exe")
+                ):
+                    pixi_binary = file_name
+                    break
 
-        if not pixi_binary:
-            console.print("[red]Could not find pixi binary in archive")
-            raise FileNotFoundError(
-                f"Could not find pixi binary in archive. Archive contents: {file_list}"
-            )
+            if not pixi_binary:
+                console.print("[red]Could not find pixi binary in archive")
+                raise FileNotFoundError(
+                    f"Could not find pixi binary in archive. Archive contents: {file_list}"
+                )
 
-        # Extract the binary
-        zip_ref.extract(pixi_binary, output_dir)
+            # Extract the binary
+            zip_ref.extract(pixi_binary, output_dir)
 
-        # Move to correct location if it was in a subdirectory
-        extracted_path = output_dir / pixi_binary
-        final_path = output_dir / Path(pixi_binary).name
+            # Move to correct location if it was in a subdirectory
+            extracted_path = output_dir / pixi_binary
+            final_path = output_dir / Path(pixi_binary).name
 
-        if extracted_path != final_path:
-            extracted_path.rename(final_path)
+            if extracted_path != final_path:
+                extracted_path.rename(final_path)
 
-        # Make executable on Unix systems
-        if not sys.platform.startswith("win"):
-            final_path.chmod(0o755)
+            # Make executable on Unix systems
+            if not sys.platform.startswith("win"):
+                final_path.chmod(0o755)
 
-        console.print(f"[green]Successfully downloaded pixi binary to: {final_path}")
+            console.print(f"[green]Successfully downloaded pixi binary to: {final_path}")
+
+        elif artifact_type == "conda":
+            # Extract all conda packages
+            conda_files = [f for f in file_list if f.endswith(".conda")]
+
+            if not conda_files:
+                console.print("[red]Could not find any .conda files in archive")
+                raise FileNotFoundError(
+                    f"Could not find any .conda files in archive. Archive contents: {file_list}"
+                )
+
+            console.print(f"[blue]Found {len(conda_files)} conda package(s)")
+
+            # Extract all conda files
+            for conda_file in conda_files:
+                zip_ref.extract(conda_file, output_dir)
+                extracted_path = output_dir / conda_file
+                final_path = output_dir / Path(conda_file).name
+
+                if extracted_path != final_path:
+                    extracted_path.rename(final_path)
+
+                console.print(f"[green]Extracted conda package: {final_path}")
+
+        else:
+            raise ValueError(f"Unsupported artifact type: {artifact_type}")
 
     # Clean up temporary file
     os.unlink(temp_zip_path)
 
 
-def download_pixi_binary(
+def download_github_artifact(
     github_token: str | None,
     output_dir: str,
     repo: str,
     workflow: str,
     run_id: int | None = None,
+    artifact_type: str = "pixi",
 ) -> None:
     # Get current platform
-    current_platform = get_current_platform()
-    console.print(f"[blue]Detected platform: {current_platform}")
+    if artifact_type == "pixi":
+        current_platform = get_current_platform()
+        console.print(f"[blue]Detected platform: {current_platform}")
+    elif artifact_type == "conda":
+        current_platform = get_conda_target()
+        console.print(f"[blue]Detected conda target: {current_platform}")
+    else:
+        raise ValueError(f"Unsupported artifact type: {artifact_type}")
 
     # Initialize GitHub client
     gh = Github(github_token)
@@ -176,7 +238,12 @@ def download_pixi_binary(
 
     # Find the artifact for our platform
     target_artifact = None
-    artifact_name_pattern = f"pixi-{current_platform}"
+    if artifact_type == "pixi":
+        artifact_name_pattern = f"pixi-{current_platform}"
+    elif artifact_type == "conda":
+        artifact_name_pattern = f"conda-packages-{current_platform}"
+    else:
+        raise ValueError(f"Unsupported artifact type: {artifact_type}")
 
     for artifact in artifacts:
         if artifact_name_pattern in artifact.name:
@@ -198,7 +265,12 @@ def download_pixi_binary(
 
     # Set up output directory
     if output_dir is None:
-        output_dir = Path.cwd() / "pixi_home" / "bin"
+        if artifact_type == "pixi":
+            output_dir = Path.cwd() / "pixi_home" / "bin"
+        elif artifact_type == "conda":
+            output_dir = Path.cwd() / "conda_packages"
+        else:
+            output_dir = Path.cwd() / "downloads"
     else:
         output_dir = Path(output_dir)
 
@@ -206,11 +278,11 @@ def download_pixi_binary(
     console.print(f"[blue]Output directory: {output_dir}")
 
     # Download and extract the artifact
-    download_and_extract_artifact(target_artifact, github_token, output_dir)
+    download_and_extract_artifact(target_artifact, github_token, output_dir, artifact_type)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download pixi binary from GitHub Actions")
+    parser = argparse.ArgumentParser(description="Download artifacts from GitHub Actions")
     parser.add_argument(
         "--token",
         help="GitHub token for authentication (can also use GITHUB_TOKEN env var)",
@@ -218,26 +290,28 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("pixi_home/bin"),
-        help="Directory to save the binary",
-    )
-    parser.add_argument(
-        "--repo",
-        default="prefix-dev/pixi",
-        help="Repository to download from",
-    )
-    parser.add_argument(
-        "--workflow",
-        default="CI",
-        help="Workflow name",
+        help="Directory to save the artifacts (default depends on artifact type)",
     )
     parser.add_argument(
         "--run-id",
         type=int,
         help="Specific workflow run ID to download from (optional)",
     )
+    parser.add_argument(
+        "artifact_type",
+        choices=["pixi", "conda"],
+        help="Type of artifact to download: 'pixi' for pixi binaries or 'conda' for conda packages",
+    )
 
     args = parser.parse_args()
+
+    # Set repo and workflow based on artifact type
+    if args.artifact_type == "pixi":
+        repo = "prefix-dev/pixi"
+        workflow = "CI"
+    elif args.artifact_type == "conda":
+        repo = "prefix-dev/pixi-build-backends"
+        workflow = "Conda Packages"
 
     # Get GitHub token from argument or environment
     github_token = args.token or os.getenv("GITHUB_TOKEN")
@@ -247,7 +321,9 @@ def main():
         sys.exit()
 
     try:
-        download_pixi_binary(github_token, args.output_dir, args.repo, args.workflow, args.run_id)
+        download_github_artifact(
+            github_token, args.output_dir, repo, workflow, args.run_id, args.artifact_type
+        )
         console.print("[green]✓ Download completed successfully!")
         sys.exit(0)
     except Exception as e:
