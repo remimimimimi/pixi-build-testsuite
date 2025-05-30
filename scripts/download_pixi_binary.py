@@ -37,85 +37,10 @@ def get_current_platform() -> str:
     raise ValueError(f"Unsupported platform: {system}-{machine}")
 
 
-def download_pixi_binary(
-    github_token: str | None,
-    output_dir: str,
-    repo: str,
-    workflow: str,
+def download_and_extract_artifact(
+    target_artifact, github_token: str | None, output_dir: Path
 ) -> None:
-    # Get current platform
-    current_platform = get_current_platform()
-    console.print(f"[blue]Detected platform: {current_platform}")
-
-    # Initialize GitHub client
-    gh = Github(github_token)
-
-    # Get the repository
-    repository = gh.get_repo(repo)
-    console.print(f"[green]Connected to repository: {repository.full_name}")
-
-    # Get the latest workflow run for the specified workflow
-    workflows = repository.get_workflows()
-    target_workflow = None
-    for wf in workflows:
-        if wf.name == workflow:
-            target_workflow = wf
-            break
-
-    if not target_workflow:
-        console.print(f"[red]Could not find workflow: {workflow}")
-        raise ValueError(f"Could not find workflow: {workflow}")
-
-    console.print(f"[blue]Found workflow: {target_workflow.name}")
-
-    # Get successful workflow runs from main branch
-    runs = target_workflow.get_runs(branch="main", status="completed")
-
-    latest_run = None
-    for run in runs:
-        latest_run = run
-        break
-
-    if not latest_run:
-        console.print("[red]No successful workflow runs found on main branch")
-        raise ValueError("No successful workflow runs found on main branch")
-
-    console.print(f"[blue]Latest successful run: {latest_run.id} from {latest_run.created_at}")
-
-    # Get artifacts for this run
-    artifacts = latest_run.get_artifacts()
-
-    # Find the artifact for our platform
-    target_artifact = None
-    artifact_name_pattern = f"pixi-{current_platform}"
-
-    for artifact in artifacts:
-        if artifact_name_pattern in artifact.name:
-            target_artifact = artifact
-            break
-
-    if not target_artifact:
-        console.print(f"[red]Could not find artifact matching pattern '{artifact_name_pattern}'")
-        console.print("[yellow]Available artifacts:")
-        available_artifacts = [artifact.name for artifact in artifacts]
-        for artifact in artifacts:
-            console.print(f"  - {artifact.name}")
-        raise FileNotFoundError(
-            f"Could not find artifact matching pattern '{artifact_name_pattern}'. "
-            f"Available artifacts: {available_artifacts}"
-        )
-
-    console.print(f"[green]Found artifact: {target_artifact.name}")
-
-    # Set up output directory
-    if output_dir is None:
-        output_dir = Path.cwd() / "pixi_home" / "bin"
-    else:
-        output_dir = Path(output_dir)
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    console.print(f"[blue]Output directory: {output_dir}")
-
+    """Download and extract artifact, return path to extracted binary."""
     # Download the artifact
     console.print("[blue]Downloading artifact...")
     download_url = target_artifact.archive_download_url
@@ -187,16 +112,102 @@ def download_pixi_binary(
     # Clean up temporary file
     os.unlink(temp_zip_path)
 
-    # Verify the binary works
-    console.print("[blue]Verifying binary...")
 
-    result = subprocess.run(
-        [str(final_path), "--version"], capture_output=True, text=True, timeout=10
-    )
-    if result.returncode == 0:
-        console.print(f"[green]✓ Binary verification successful: {result.stdout.strip()}")
+def download_pixi_binary(
+    github_token: str | None,
+    output_dir: str,
+    repo: str,
+    workflow: str,
+    run_id: int | None = None,
+) -> None:
+    # Get current platform
+    current_platform = get_current_platform()
+    console.print(f"[blue]Detected platform: {current_platform}")
+
+    # Initialize GitHub client
+    gh = Github(github_token)
+
+    # Get the repository
+    repository = gh.get_repo(repo)
+    console.print(f"[green]Connected to repository: {repository.full_name}")
+
+    # Get the workflow run
+    if run_id:
+        # Use specific run ID - no need to find workflow first
+        console.print(f"[blue]Using specified run ID: {run_id}")
+        latest_run = repository.get_workflow_run(run_id)
+        if latest_run.conclusion != "success":
+            console.print(
+                f"[yellow]Warning: Run {run_id} did not complete successfully (status: {latest_run.conclusion})"
+            )
+
     else:
-        console.print(f"[yellow]⚠ Binary returned non-zero exit code: {result.returncode}")
+        # Get the latest workflow run for the specified workflow
+        workflows = repository.get_workflows()
+        target_workflow = None
+        for wf in workflows:
+            if wf.name == workflow:
+                target_workflow = wf
+                break
+
+        if not target_workflow:
+            console.print(f"[red]Could not find workflow: {workflow}")
+            raise ValueError(f"Could not find workflow: {workflow}")
+
+        console.print(f"[blue]Found workflow: {target_workflow.name}")
+
+        # Get latest successful workflow run from main branch
+        console.print("[blue]Finding latest successful workflow run from main branch")
+        runs = target_workflow.get_runs(branch="main", status="completed")
+
+        latest_run = None
+        for run in runs:
+            if run.conclusion == "success":
+                latest_run = run
+                break
+
+        if not latest_run:
+            console.print("[red]No successful workflow runs found on main branch")
+            raise ValueError("No successful workflow runs found on main branch")
+
+    console.print(f"[blue]Latest successful run: {latest_run.id} from {latest_run.created_at}")
+
+    # Get artifacts for this run
+    artifacts = latest_run.get_artifacts()
+
+    # Find the artifact for our platform
+    target_artifact = None
+    artifact_name_pattern = f"pixi-{current_platform}"
+
+    for artifact in artifacts:
+        if artifact_name_pattern in artifact.name:
+            target_artifact = artifact
+            break
+
+    if not target_artifact:
+        console.print(f"[red]Could not find artifact matching pattern '{artifact_name_pattern}'")
+        console.print("[yellow]Available artifacts:")
+        available_artifacts = [artifact.name for artifact in artifacts]
+        for artifact in artifacts:
+            console.print(f"  - {artifact.name}")
+        raise FileNotFoundError(
+            f"Could not find artifact matching pattern '{artifact_name_pattern}'. "
+            f"Available artifacts: {available_artifacts}"
+        )
+
+    console.print(f"[green]Found artifact: {target_artifact.name}")
+
+    # Set up output directory
+    if output_dir is None:
+        output_dir = Path.cwd() / "pixi_home" / "bin"
+    else:
+        output_dir = Path(output_dir)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    console.print(f"[blue]Output directory: {output_dir}")
+
+    # Download and extract the artifact
+    download_and_extract_artifact(target_artifact, github_token, output_dir)
 
 
 def main():
@@ -221,6 +232,11 @@ def main():
         default="CI",
         help="Workflow name",
     )
+    parser.add_argument(
+        "--run-id",
+        type=int,
+        help="Specific workflow run ID to download from (optional)",
+    )
 
     args = parser.parse_args()
 
@@ -232,7 +248,7 @@ def main():
         sys.exit()
 
     try:
-        download_pixi_binary(github_token, args.output_dir, args.repo, args.workflow)
+        download_pixi_binary(github_token, args.output_dir, args.repo, args.workflow, args.run_id)
         console.print("[green]✓ Download completed successfully!")
         sys.exit(0)
     except Exception as e:
