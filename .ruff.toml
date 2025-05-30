@@ -1,5 +1,5 @@
-line-length = 100
 fixable = ["I"]
+line-length = 100
 
 [format]
 indent-style = "space"
