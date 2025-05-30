@@ -4,14 +4,14 @@ channels = ["conda-forge"]
 description = "Add a short description here"
 name = "build-recipe"
 platforms = ["osx-arm64"]
-version = "0.1.0"
 preview = ["pixi-build"]
+version = "0.1.0"
 
 [tasks]
 
 [dependencies]
-python = "3.12.*"
 bzip2 = { path = "./recipes/bzip2" }
+python = "3.12.*"
 
 # [build-variants.options]
 # inherit-from = "conda-forge"

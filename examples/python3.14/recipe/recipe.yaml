@@ -12,7 +12,7 @@ source:
 build:
   number: 0
   files:
-    exclude: 
+    exclude:
       - "*.o"
 
 requirements:
@@ -24,7 +24,7 @@ requirements:
     - libtool
     - pkg-config
     # configure script looks for llvm-ar for lto
-    - clang-18    
+    - clang-18
     - llvm-tools-18
 
   host:
@@ -51,6 +51,6 @@ about:
   description: |
     Python is a widely used high-level, general-purpose, interpreted, dynamic
     programming language. Its design philosophy emphasizes code readability
-    with the use of significant indentation. 
+    with the use of significant indentation.
   documentation: https://www.python.org/doc/versions/
   repository: https://docs.python.org/devguide/
