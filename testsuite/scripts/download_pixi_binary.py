@@ -7,13 +7,13 @@ and extracts it to the specified directory.
 
 import argparse
 import os
+import platform
 import sys
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Optional
 
-import requests
+import httpx
 from github import Github
 from rich.console import Console
 from rich.progress import track
@@ -21,11 +21,33 @@ from rich.progress import track
 console = Console()
 
 
+def get_current_platform() -> str:
+    """Get the current platform string for artifact naming."""
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+
+    if system == "linux":
+        if machine in ["x86_64", "amd64"]:
+            return "linux-x86_64"
+        elif machine in ["aarch64", "arm64"]:
+            return "linux-aarch64"
+    elif system == "darwin":
+        if machine in ["arm64", "aarch64"]:
+            return "macos-aarch64"
+        elif machine in ["x86_64", "amd64"]:
+            return "macos-x86_64"
+    elif system == "windows":
+        if machine in ["x86_64", "amd64"]:
+            return "windows-x86_64"
+
+    raise ValueError(f"Unsupported platform: {system}-{machine}")
+
+
 def download_pixi_binary(
-    github_token: Optional[str] = None,
-    output_dir: Optional[str] = None,
-    platform: str = "linux-x86_64",
-    branch: str = "main",
+    github_token: str,
+    output_dir: str,
+    repo: str,
+    workflow: str,
 ) -> bool:
     """
     Download the pixi binary from GitHub Actions artifacts.
@@ -33,36 +55,40 @@ def download_pixi_binary(
     Args:
         github_token: GitHub token for authentication (optional)
         output_dir: Directory to save the binary (defaults to ./pixi_home/bin)
-        platform: Platform to download (linux-x86_64, windows-x86_64, macos-aarch64)
-        branch: Branch to download from (default: main)
+        repo: Repository to download from (default: prefix-dev/pixi)
+        workflow: Workflow file name (default: CI.yml)
 
     Returns:
         True if successful, False otherwise
     """
     try:
+        # Get current platform
+        current_platform = get_current_platform()
+        console.print(f"[blue]Detected platform: {current_platform}")
+
         # Initialize GitHub client
         g = Github(github_token) if github_token else Github()
 
         # Get the repository
-        repo = g.get_repo("prefix-dev/pixi")
-        console.print(f"[green]Connected to repository: {repo.full_name}")
+        repository = g.get_repo(repo)
+        console.print(f"[green]Connected to repository: {repository.full_name}")
 
-        # Get the latest workflow run for the CI workflow on the specified branch
-        workflows = repo.get_workflows()
-        ci_workflow = None
-        for workflow in workflows:
-            if workflow.name == "CI" or workflow.path == ".github/workflows/CI.yml":
-                ci_workflow = workflow
+        # Get the latest workflow run for the specified workflow
+        workflows = repository.get_workflows()
+        target_workflow = None
+        for wf in workflows:
+            if wf.name == workflow:
+                target_workflow = wf
                 break
 
-        if not ci_workflow:
-            console.print("[red]Could not find CI workflow")
+        if not target_workflow:
+            console.print(f"[red]Could not find workflow: {workflow}")
             return False
 
-        console.print(f"[blue]Found CI workflow: {ci_workflow.name}")
+        console.print(f"[blue]Found workflow: {target_workflow.name}")
 
-        # Get successful workflow runs from the specified branch
-        runs = ci_workflow.get_runs(branch=branch, status="completed")
+        # Get successful workflow runs from main branch
+        runs = target_workflow.get_runs(branch="main", status="completed")
 
         latest_run = None
         for run in runs:
@@ -70,7 +96,7 @@ def download_pixi_binary(
             break
 
         if not latest_run:
-            console.print(f"[red]No successful workflow runs found on branch '{branch}'")
+            console.print("[red]No successful workflow runs found on main branch")
             return False
 
         console.print(f"[blue]Latest successful run: {latest_run.id} from {latest_run.created_at}")
@@ -80,7 +106,7 @@ def download_pixi_binary(
 
         # Find the artifact for our platform
         target_artifact = None
-        artifact_name_pattern = f"pixi-{platform}"
+        artifact_name_pattern = f"pixi-{current_platform}"
 
         for artifact in artifacts:
             if artifact_name_pattern in artifact.name:
@@ -111,30 +137,32 @@ def download_pixi_binary(
         console.print("[blue]Downloading artifact...")
         download_url = target_artifact.archive_download_url
 
-        # We need to use the GitHub API with authentication to download
+        # Use httpx to download with authentication and follow redirects
         headers = {}
         if github_token:
             headers["Authorization"] = f"token {github_token}"
 
-        response = requests.get(download_url, headers=headers, stream=True)
-        response.raise_for_status()
+        with httpx.stream(
+            "GET", download_url, headers=headers, follow_redirects=True, timeout=30.0
+        ) as response:
+            response.raise_for_status()
 
-        # Save to temporary file and extract
-        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
-            total_size = int(response.headers.get("content-length", 0))
+            # Save to temporary file and extract
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
+                total_size = int(response.headers.get("content-length", 0))
 
-            if total_size > 0:
-                for chunk in track(
-                    response.iter_content(chunk_size=8192),
-                    total=total_size // 8192,
-                    description="Downloading...",
-                ):
-                    temp_file.write(chunk)
-            else:
-                for chunk in response.iter_content(chunk_size=8192):
-                    temp_file.write(chunk)
+                if total_size > 0:
+                    for chunk in track(
+                        response.iter_bytes(chunk_size=8192),
+                        total=total_size // 8192,
+                        description="Downloading...",
+                    ):
+                        temp_file.write(chunk)
+                else:
+                    for chunk in response.iter_bytes(chunk_size=8192):
+                        temp_file.write(chunk)
 
-            temp_zip_path = temp_file.name
+                temp_zip_path = temp_file.name
 
         console.print("[blue]Extracting binary...")
 
@@ -203,32 +231,40 @@ def download_pixi_binary(
 def main():
     parser = argparse.ArgumentParser(description="Download pixi binary from GitHub Actions")
     parser.add_argument(
-        "--token", help="GitHub token for authentication (can also use GITHUB_TOKEN env var)"
+        "--token",
+        help="GitHub token for authentication (can also use GITHUB_TOKEN env var)",
     )
     parser.add_argument(
-        "--output-dir", help="Directory to save the binary (default: ./pixi_home/bin)"
+        "--output-dir",
+        type=Path,
+        default=Path("pixi_home/bin"),
+        help="Directory to save the binary",
     )
     parser.add_argument(
-        "--platform",
-        default="linux-x86_64",
-        choices=["linux-x86_64", "windows-x86_64", "macos-aarch64"],
-        help="Platform to download (default: linux-x86_64)",
+        "--repo",
+        default="prefix-dev/pixi",
+        help="Repository to download from",
     )
-    parser.add_argument("--branch", default="main", help="Branch to download from (default: main)")
+    parser.add_argument(
+        "--workflow",
+        default="CI",
+        help="Workflow name",
+    )
 
     args = parser.parse_args()
 
     # Get GitHub token from argument or environment
     github_token = args.token or os.getenv("GITHUB_TOKEN")
     if not github_token:
-        console.print("[yellow]⚠ No GitHub token provided. Rate limits may apply.")
+        console.print("[yellow]⚠ No GitHub token provided.")
         console.print("[yellow]  Set GITHUB_TOKEN environment variable or use --token argument")
+        sys.exit(1)
 
     success = download_pixi_binary(
         github_token=github_token,
         output_dir=args.output_dir,
-        platform=args.platform,
-        branch=args.branch,
+        repo=args.repo,
+        workflow=args.workflow,
     )
 
     if success:

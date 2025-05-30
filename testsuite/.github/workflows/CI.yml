@@ -107,8 +107,8 @@ jobs:
           pixi run download-pixi \
             --token "${{ secrets.GITHUB_TOKEN }}" \
             --output-dir "${{ env.PIXI_HOME }}/bin" \
-            --platform "linux-x86_64" \
-            --branch "main"
+            --repo "prefix-dev/pixi" \
+            --workflow "CI.yml"
       - name: Verify pixi installation
         run: pixi info
 
