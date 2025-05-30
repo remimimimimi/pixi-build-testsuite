@@ -43,20 +43,6 @@ def download_pixi_binary(
     repo: str,
     workflow: str,
 ) -> None:
-    """
-    Download the pixi binary from GitHub Actions artifacts.
-
-    Args:
-        github_token: GitHub token for authentication (optional)
-        output_dir: Directory to save the binary (defaults to ./pixi_home/bin)
-        repo: Repository to download from (default: prefix-dev/pixi)
-        workflow: Workflow file name (default: CI.yml)
-
-    Raises:
-        ValueError: If the specified workflow cannot be found or no successful workflow runs are found
-        FileNotFoundError: If the required artifact or binary cannot be found
-        RuntimeError: For other download-related errors
-    """
     # Get current platform
     current_platform = get_current_platform()
     console.print(f"[blue]Detected platform: {current_platform}")
