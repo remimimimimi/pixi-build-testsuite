@@ -61,7 +61,7 @@ def get_conda_target() -> str:
 
 
 def download_and_extract_artifact(
-    target_artifact, github_token: str | None, output_dir: Path, artifact_type: str = "pixi"
+    target_artifact, github_token: str | None, output_dir: Path, artifact_type: str
 ) -> None:
     """Download and extract artifact, return path to extracted binary."""
     # Download the artifact
@@ -169,7 +169,7 @@ def download_and_extract_artifact(
 
 def download_github_artifact(
     github_token: str | None,
-    output_dir: str,
+    output_dir: Path,
     repo: str,
     workflow: str,
     run_id: int | None = None,
@@ -264,16 +264,6 @@ def download_github_artifact(
     console.print(f"[green]Found artifact: {target_artifact.name}")
 
     # Set up output directory
-    if output_dir is None:
-        if artifact_type == "pixi":
-            output_dir = Path.cwd() / "pixi_home" / "bin"
-        elif artifact_type == "conda":
-            output_dir = Path.cwd() / "conda_packages"
-        else:
-            output_dir = Path.cwd() / "downloads"
-    else:
-        output_dir = Path(output_dir)
-
     output_dir.mkdir(parents=True, exist_ok=True)
     console.print(f"[blue]Output directory: {output_dir}")
 
@@ -288,30 +278,30 @@ def main():
         help="GitHub token for authentication (can also use GITHUB_TOKEN env var)",
     )
     parser.add_argument(
-        "--output-dir",
-        type=Path,
-        help="Directory to save the artifacts (default depends on artifact type)",
-    )
-    parser.add_argument(
         "--run-id",
         type=int,
         help="Specific workflow run ID to download from (optional)",
     )
     parser.add_argument(
-        "artifact_type",
-        choices=["pixi", "conda"],
-        help="Type of artifact to download: 'pixi' for pixi binaries or 'conda' for conda packages",
+        "repo",
+        choices=["pixi", "pixi-build-backends"],
+        help="Repository to download from: 'pixi' for pixi binaries or 'pixi-build-backends' for conda packages",
     )
 
     args = parser.parse_args()
 
-    # Set repo and workflow based on artifact type
-    if args.artifact_type == "pixi":
+    # Set repo, workflow, and artifact type based on repository choice
+    if args.repo == "pixi":
         repo = "prefix-dev/pixi"
         workflow = "CI"
-    elif args.artifact_type == "conda":
+        artifact_type = "pixi"
+    elif args.repo == "pixi-build-backends":
         repo = "prefix-dev/pixi-build-backends"
         workflow = "Conda Packages"
+        artifact_type = "conda"
+
+    # Hardcode output directory to "artifacts"
+    output_dir = Path("artifacts")
 
     # Get GitHub token from argument or environment
     github_token = args.token or os.getenv("GITHUB_TOKEN")
@@ -322,7 +312,7 @@ def main():
 
     try:
         download_github_artifact(
-            github_token, args.output_dir, repo, workflow, args.run_id, args.artifact_type
+            github_token, output_dir, repo, workflow, args.run_id, artifact_type
         )
         console.print("[green]✓ Download completed successfully!")
         sys.exit(0)
