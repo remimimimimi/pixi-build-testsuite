@@ -1,4 +1,5 @@
 line-length = 100
+fixable = ["I"]
 
 [format]
 indent-style = "space"
