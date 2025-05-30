@@ -48,10 +48,10 @@ def download_pixi_binary(
     console.print(f"[blue]Detected platform: {current_platform}")
 
     # Initialize GitHub client
-    g = Github(github_token)
+    gh = Github(github_token)
 
     # Get the repository
-    repository = g.get_repo(repo)
+    repository = gh.get_repo(repo)
     console.print(f"[green]Connected to repository: {repository.full_name}")
 
     # Get the latest workflow run for the specified workflow

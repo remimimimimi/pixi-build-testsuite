@@ -108,7 +108,7 @@ jobs:
             --token "${{ secrets.GITHUB_TOKEN }}" \
             --output-dir "${{ env.PIXI_HOME }}/bin" \
             --repo "prefix-dev/pixi" \
-            --workflow "CI.yml"
+            --workflow "CI"
       - name: Verify pixi installation
         run: pixi info
 
