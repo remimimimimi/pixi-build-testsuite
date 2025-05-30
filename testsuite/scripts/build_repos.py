@@ -115,7 +115,7 @@ def process_repository(repo_path: Path, repo_name: str) -> None:
     build_executables(repo_path)
 
 
-def main():
+def main() -> None:
     """Main function to process repositories."""
     # Load environment variables from .env file
     env_file = Path(__file__).parent.parent / ".env"
