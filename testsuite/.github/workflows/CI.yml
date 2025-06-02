@@ -92,8 +92,6 @@ jobs:
     timeout-minutes: 10
     name: Pytest | linux x86_64
     runs-on: 8core_ubuntu_latest_runner
-    env:
-      PIXI_HOME: "${{ github.workspace }}/pixi_home"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: Set up pixi for downloading binary
@@ -112,3 +110,6 @@ jobs:
 
       - name: Run integration tests
         run: pixi run --locked test
+        env:
+          PIXI_BIN_DIR: ${{ github.workspace }}/artifacts
+          BUILD_BACKENDS_BIN_DIR: ${{ github.workspace }}/artifacts
