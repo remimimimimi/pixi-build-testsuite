@@ -15,8 +15,22 @@ from rich.progress import track
 console = Console()
 
 
+def get_github_os() -> str:
+    """Get the GitHub Actions OS string for artifact naming."""
+    system = platform.system().lower()
+
+    if system == "linux":
+        return "ubuntu-latest"
+    elif system == "darwin":
+        return "macos-latest"
+    elif system == "windows":
+        return "windows-latest"
+
+    raise ValueError(f"Unsupported platform: {system}")
+
+
 def get_current_platform() -> str:
-    """Get the current platform string for artifact naming."""
+    """Get the current platform string for pixi artifact naming."""
     system = platform.system().lower()
     machine = platform.machine().lower()
 
@@ -37,32 +51,8 @@ def get_current_platform() -> str:
     raise ValueError(f"Unsupported platform: {system}-{machine}")
 
 
-def get_conda_target() -> str:
-    """Get the conda target string for conda package artifacts."""
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system == "linux":
-        if machine in ["x86_64", "amd64"]:
-            return "linux-64"
-        elif machine in ["aarch64", "arm64"]:
-            return "linux-aarch64"
-        elif machine in ["ppc64le"]:
-            return "linux-ppc64le"
-    elif system == "darwin":
-        if machine in ["arm64", "aarch64"]:
-            return "osx-arm64"
-        elif machine in ["x86_64", "amd64"]:
-            return "osx-64"
-    elif system == "windows":
-        if machine in ["x86_64", "amd64"]:
-            return "win-64"
-
-    raise ValueError(f"Unsupported platform: {system}-{machine}")
-
-
 def download_and_extract_artifact(
-    target_artifact: Artifact, github_token: str | None, output_dir: Path, artifact_type: str
+    target_artifact: Artifact, github_token: str | None, output_dir: Path, repo: str
 ) -> None:
     """Download and extract artifact, return path to extracted binary."""
     # Download the artifact
@@ -104,7 +94,7 @@ def download_and_extract_artifact(
         file_list = zip_ref.namelist()
         console.print(f"[blue]Archive contents: {file_list}")
 
-        if artifact_type == "pixi":
+        if repo == "prefix-dev/pixi":
             # Find the pixi binary
             pixi_binary = None
             for file_name in file_list:
@@ -138,31 +128,45 @@ def download_and_extract_artifact(
 
             console.print(f"[green]Successfully downloaded pixi binary to: {final_path}")
 
-        elif artifact_type == "conda":
-            # Extract all conda packages
-            conda_files = [f for f in file_list if f.endswith(".conda")]
+        elif repo == "prefix-dev/pixi-build-backends":
+            # Extract all pixi-build-* executables
+            backend_executables = []
+            is_windows = sys.platform.startswith("win")
 
-            if not conda_files:
-                console.print("[red]Could not find any .conda files in archive")
+            for file_name in file_list:
+                base_name = Path(file_name).name
+                if base_name.startswith("pixi-build-"):
+                    # On Windows, expect .exe extension; on others, no extension
+                    if is_windows and base_name.endswith(".exe"):
+                        backend_executables.append(file_name)
+                    elif not is_windows and not base_name.endswith(".exe") and "." not in base_name:
+                        backend_executables.append(file_name)
+
+            if not backend_executables:
+                console.print("[red]Could not find any pixi-build-* executables in archive")
                 raise FileNotFoundError(
-                    f"Could not find any .conda files in archive. Archive contents: {file_list}"
+                    f"Could not find any pixi-build-* executables in archive. Archive contents: {file_list}"
                 )
 
-            console.print(f"[blue]Found {len(conda_files)} conda package(s)")
+            console.print(f"[blue]Found {len(backend_executables)} backend executable(s)")
 
-            # Extract all conda files
-            for conda_file in conda_files:
-                zip_ref.extract(conda_file, output_dir)
-                extracted_path = output_dir / conda_file
-                final_path = output_dir / Path(conda_file).name
+            # Extract all executables
+            for executable in backend_executables:
+                zip_ref.extract(executable, output_dir)
+                extracted_path = output_dir / executable
+                final_path = output_dir / Path(executable).name
 
                 if extracted_path != final_path:
                     extracted_path.rename(final_path)
 
-                console.print(f"[green]Extracted conda package: {final_path}")
+                # Make executable on Unix systems
+                if not sys.platform.startswith("win"):
+                    final_path.chmod(0o755)
+
+                console.print(f"[green]Extracted executable: {final_path}")
 
         else:
-            raise ValueError(f"Unsupported artifact type: {artifact_type}")
+            raise ValueError(f"Unsupported repository: {repo}")
 
     # Clean up temporary file
     os.unlink(temp_zip_path)
@@ -174,17 +178,16 @@ def download_github_artifact(
     repo: str,
     workflow: str,
     run_id: int | None = None,
-    artifact_type: str = "pixi",
 ) -> None:
     # Get current platform
-    if artifact_type == "pixi":
+    if repo == "prefix-dev/pixi":
         current_platform = get_current_platform()
         console.print(f"[blue]Detected platform: {current_platform}")
-    elif artifact_type == "conda":
-        current_platform = get_conda_target()
-        console.print(f"[blue]Detected conda target: {current_platform}")
+    elif repo == "prefix-dev/pixi-build-backends":
+        current_platform = get_github_os()
+        console.print(f"[blue]Detected GitHub OS: {current_platform}")
     else:
-        raise ValueError(f"Unsupported artifact type: {artifact_type}")
+        raise ValueError(f"Unsupported repository: {repo}")
 
     # Initialize GitHub client
     gh = Github(github_token)
@@ -240,12 +243,12 @@ def download_github_artifact(
 
     # Find the artifact for our platform
     target_artifact = None
-    if artifact_type == "pixi":
+    if repo == "prefix-dev/pixi":
         artifact_name_pattern = f"pixi-{current_platform}"
-    elif artifact_type == "conda":
-        artifact_name_pattern = f"conda-packages-{current_platform}"
+    elif repo == "prefix-dev/pixi-build-backends":
+        artifact_name_pattern = f"pixi-build-backends-{current_platform}"
     else:
-        raise ValueError(f"Unsupported artifact type: {artifact_type}")
+        raise ValueError(f"Unsupported repository: {repo}")
 
     for artifact in artifacts:
         if artifact_name_pattern in artifact.name:
@@ -270,7 +273,7 @@ def download_github_artifact(
     console.print(f"[blue]Output directory: {output_dir}")
 
     # Download and extract the artifact
-    download_and_extract_artifact(target_artifact, github_token, output_dir, artifact_type)
+    download_and_extract_artifact(target_artifact, github_token, output_dir, repo)
 
 
 def main() -> None:
@@ -287,20 +290,18 @@ def main() -> None:
     parser.add_argument(
         "repo",
         choices=["pixi", "pixi-build-backends"],
-        help="Repository to download from: 'pixi' for pixi binaries or 'pixi-build-backends' for conda packages",
+        help="Repository to download from: 'pixi' for pixi binaries or 'pixi-build-backends' for build backend executables",
     )
 
     args = parser.parse_args()
 
-    # Set repo, workflow, and artifact type based on repository choice
+    # Set repo and workflow based on repository choice
     if args.repo == "pixi":
         repo = "prefix-dev/pixi"
         workflow = "CI"
-        artifact_type = "pixi"
     elif args.repo == "pixi-build-backends":
         repo = "prefix-dev/pixi-build-backends"
-        workflow = "Conda Packages"
-        artifact_type = "conda"
+        workflow = "Rust"
 
     # Hardcode output directory to "artifacts"
     output_dir = Path("artifacts")
@@ -313,9 +314,7 @@ def main() -> None:
         sys.exit()
 
     try:
-        download_github_artifact(
-            github_token, output_dir, repo, workflow, args.run_id, artifact_type
-        )
+        download_github_artifact(github_token, output_dir, repo, workflow, args.run_id)
         console.print("[green]✓ Download completed successfully!")
         sys.exit(0)
     except Exception as e:
