@@ -1,4 +1,0 @@
-[workspace]
-channels = []
-name = "non-build-workspace"
-platforms = []
