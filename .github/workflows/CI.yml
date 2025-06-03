@@ -88,42 +88,47 @@ jobs:
   #     - name: Run integration tests
   #       run: pixi run --locked test-integration-ci
 
-  test:
+  test-linux-x86_64:
     timeout-minutes: 10
-    name: Build | ${{ matrix.os }} ${{ matrix.arch }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: linux
-            arch: x86_64
-            runner: 8core_ubuntu_latest_runner
-          - os: windows
-            arch: x86_64
-            runner: windows-latest
-          - os: macos
-            arch: aarch64
-            runner: macos-14
+    name: Build test Linux x86_64
+    runs-on: 8core_ubuntu_latest_runner
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - name: Create Dev Drive (Windows)
-        if: matrix.os == 'windows'
-        # This script also sets PIXI_WORKSPACE
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@main
+        with:
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+
+      - name: Download artifacts
+        run: |
+          pixi run download-artifacts pixi
+          pixi run download-artifacts pixi-build-backends
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup binary permissions
+        run: chmod a+x artifacts/pixi
+
+      - name: Run integration tests
+        run: pixi run --locked test
+        env:
+          PIXI_BIN_DIR: ${{ github.workspace }}/artifacts
+          BUILD_BACKENDS_BIN_DIR: ${{ github.workspace }}/artifacts
+
+  test-windows-x86_64:
+    timeout-minutes: 10
+    name: Build test Windows x86_64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Create Dev Drive
         run: ${{ github.workspace }}/.github/workflows/setup-dev-drive.ps1
 
-      - name: Set PIXI_WORKSPACE (Unix)
-        if: matrix.os != 'windows'
-        run: echo "PIXI_WORKSPACE=${{ github.workspace }}" >> $GITHUB_ENV
-
-      - name: Copy Git Repo to Dev Drive (Windows)
-        if: matrix.os == 'windows'
-        run: |
-          Copy-Item -Path "${{ github.workspace }}" -Destination "${{ env.PIXI_WORKSPACE }}" -Recurse
-          echo "${{ env.PIXI_WORKSPACE }}/target/pixi/release" | Out-File -Append -Encoding utf8 -FilePath $env:GITHUB_PATH
-        env:
-          TARGET_RELEASE: "target/pixi/release"
+      - name: Copy Git Repo to Dev Drive
+        run: Copy-Item -Path "${{ github.workspace }}" -Destination "${{ env.PIXI_WORKSPACE }}" -Recurse
 
       - name: Set up pixi
         uses: prefix-dev/setup-pixi@main
@@ -140,15 +145,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup unix binary permissions (Unix)
-        if: matrix.os != 'windows'
-        working-directory: ${{ env.PIXI_WORKSPACE }}
-        run: |
-          chmod a+x ${{ env.WORKSPACE_DIR }}/artifacts/pixi
-
       - name: Run integration tests
         run: pixi run --locked test
         working-directory: ${{ env.PIXI_WORKSPACE }}
         env:
           PIXI_BIN_DIR: ${{ env.PIXI_WORKSPACE }}/artifacts
           BUILD_BACKENDS_BIN_DIR: ${{ env.PIXI_WORKSPACE }}/artifacts
+
+  test-macos-aarch64:
+    timeout-minutes: 10
+    name: Build test macOS aarch64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@main
+        with:
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+
+      - name: Download artifacts
+        run: |
+          pixi run download-artifacts pixi
+          pixi run download-artifacts pixi-build-backends
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup binary permissions
+        run: chmod a+x artifacts/pixi
+
+      - name: Run integration tests
+        run: pixi run --locked test
+        env:
+          PIXI_BIN_DIR: ${{ github.workspace }}/artifacts
+          BUILD_BACKENDS_BIN_DIR: ${{ github.workspace }}/artifacts
