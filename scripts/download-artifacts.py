@@ -309,16 +309,16 @@ def main() -> None:
     # Get GitHub token from argument or environment
     github_token = args.token or os.getenv("GITHUB_TOKEN")
     if not github_token:
-        console.print("[red]❌ No GitHub token provided")
+        console.print("[red][ERROR] No GitHub token provided")
         console.print("[red]  Set GITHUB_TOKEN environment variable or use --token argument")
         sys.exit()
 
     try:
         download_github_artifact(github_token, output_dir, repo, workflow, args.run_id)
-        console.print("[green]✅ Download completed successfully!")
+        console.print("[green][SUCCESS] Download completed successfully!")
         sys.exit(0)
     except Exception as e:
-        console.print(f"[red]❌ Download failed: {e}")
+        console.print(f"[red][ERROR] Download failed: {e}")
         sys.exit(1)
 
 
