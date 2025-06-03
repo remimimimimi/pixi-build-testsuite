@@ -112,7 +112,7 @@ jobs:
         run: chmod a+x artifacts/pixi
 
       - name: Run integration tests
-        run: pixi run --locked test
+        run: pixi run --locked test-slow
         env:
           PIXI_BIN_DIR: ${{ github.workspace }}/artifacts
           BUILD_BACKENDS_BIN_DIR: ${{ github.workspace }}/artifacts
@@ -146,7 +146,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run integration tests
-        run: pixi run --locked test
+        run: pixi run --locked test-slow
         working-directory: ${{ env.PIXI_WORKSPACE }}
         env:
           PIXI_BIN_DIR: ${{ env.PIXI_WORKSPACE }}/artifacts
@@ -176,7 +176,7 @@ jobs:
         run: chmod a+x artifacts/pixi
 
       - name: Run integration tests
-        run: pixi run --locked test
+        run: pixi run --locked test-slow
         env:
           PIXI_BIN_DIR: ${{ github.workspace }}/artifacts
           BUILD_BACKENDS_BIN_DIR: ${{ github.workspace }}/artifacts
