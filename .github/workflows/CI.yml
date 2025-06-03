@@ -88,13 +88,41 @@ jobs:
   #     - name: Run integration tests
   #       run: pixi run --locked test-integration-ci
 
-  test-linux-x86_64:
+  test:
     timeout-minutes: 10
-    name: Pytest | linux x86_64
-    runs-on: 8core_ubuntu_latest_runner
+    name: Build | ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: x86_64
+            runner: 8core_ubuntu_latest_runner
+            workspace: ${{ github.workspace }}
+          - os: windows
+            arch: x86_64
+            runner: windows-latest
+            workspace: "D:/a/pixi-build-testsuite"
+          - os: macos
+            arch: aarch64
+            runner: macos-14
+            workspace: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Set up pixi for downloading binary
+      
+      - name: Create Dev Drive (Windows)
+        if: matrix.os == 'windows'
+        run: ${{ github.workspace }}/.github/workflows/setup-dev-drive.ps1
+        
+      - name: Copy Git Repo to Dev Drive (Windows)
+        if: matrix.os == 'windows'
+        run: |
+          Copy-Item -Path "${{ github.workspace }}" -Destination "${{ matrix.workspace }}" -Recurse
+          echo "${{ matrix.workspace }}/target/pixi/release" | Out-File -Append -Encoding utf8 -FilePath $env:GITHUB_PATH
+        env:
+          TARGET_RELEASE: "target/pixi/release"
+      
+      - name: Set up pixi
         uses: prefix-dev/setup-pixi@main
         with:
           cache: true
@@ -103,13 +131,23 @@ jobs:
       - name: Download artifacts from prefix-dev/pixi repository
         run: |
           pixi run download-artifacts pixi --token "${{ secrets.GITHUB_TOKEN }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download artifacts from prefix-dev/pixi-build-backends repository
         run: |
-          pixi run download-artifacts pixi-build-backends --token "${{ secrets.GITHUB_TOKEN }}"
+          pixi run download-artifacts pixi-build-backends
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup unix binary permissions (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          chmod a+x ${{ matrix.workspace }}/artifacts/pixi
 
       - name: Run integration tests
         run: pixi run --locked test
+        working-directory: ${{ matrix.workspace }}
         env:
-          PIXI_BIN_DIR: ${{ github.workspace }}/artifacts
-          BUILD_BACKENDS_BIN_DIR: ${{ github.workspace }}/artifacts
+          PIXI_BIN_DIR: ${{ matrix.workspace }}/artifacts
+          BUILD_BACKENDS_BIN_DIR: ${{ matrix.workspace }}/artifacts
