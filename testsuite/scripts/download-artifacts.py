@@ -186,11 +186,7 @@ def download_github_artifact(
     if run_id:
         # Use specific run ID - no need to find workflow first
         console.print(f"[blue]Using specified run ID: {run_id}")
-        latest_run = repository.get_workflow_run(run_id)
-        if latest_run.conclusion != "success":
-            console.print(
-                f"[yellow]Warning: Run {run_id} did not complete successfully (status: {latest_run.conclusion})"
-            )
+        selected_run = repository.get_workflow_run(run_id)
 
     else:
         # Get the latest workflow run for the specified workflow
@@ -211,21 +207,21 @@ def download_github_artifact(
         console.print("[blue]Finding latest successful workflow run from main branch")
         runs = target_workflow.get_runs(branch="main", status="completed")
 
-        latest_run = None
+        selected_run = None
         for run in runs:
             if run.conclusion == "success":
-                latest_run = run
+                selected_run = run
                 break
 
-        if not latest_run:
+        if not selected_run:
             console.print("[red]No successful workflow runs found on main branch")
             raise ValueError("No successful workflow runs found on main branch")
 
-    assert latest_run is not None
-    console.print(f"[blue]Latest successful run: {latest_run.id} from {latest_run.created_at}")
+    assert selected_run is not None
+    console.print(f"[blue]Selected run: {selected_run.id} from {selected_run.created_at}")
 
     # Get artifacts for this run
-    artifacts = latest_run.get_artifacts()
+    artifacts = selected_run.get_artifacts()
 
     # Find the artifact for our platform
     target_artifact = None
