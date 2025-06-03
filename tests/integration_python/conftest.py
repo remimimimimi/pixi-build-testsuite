@@ -222,27 +222,6 @@ def test_data() -> Path:
 
 
 @pytest.fixture
-def pypi_data(test_data: Path) -> Path:
-    """
-    Returns the pixi pypi test data
-    """
-    return test_data.joinpath("pypi")
-
-
-@pytest.fixture
-def pixi_tomls(test_data: Path) -> Path:
-    """
-    Returns the pixi pypi test data
-    """
-    return test_data.joinpath("pixi_tomls")
-
-
-@pytest.fixture
-def mock_projects(test_data: Path) -> Path:
-    return test_data.joinpath("mock-projects")
-
-
-@pytest.fixture
 def channels(test_data: Path) -> Path:
     return test_data.joinpath("channels", "channels")
 
@@ -253,45 +232,5 @@ def dummy_channel_1(channels: Path) -> str:
 
 
 @pytest.fixture
-def dummy_channel_2(channels: Path) -> str:
-    return channels.joinpath("dummy_channel_2").as_uri()
-
-
-@pytest.fixture
 def multiple_versions_channel_1(channels: Path) -> str:
     return channels.joinpath("multiple_versions_channel_1").as_uri()
-
-
-@pytest.fixture
-def non_self_expose_channel_1(channels: Path) -> str:
-    return channels.joinpath("non_self_expose_channel_1").as_uri()
-
-
-@pytest.fixture
-def non_self_expose_channel_2(channels: Path) -> str:
-    return channels.joinpath("non_self_expose_channel_2").as_uri()
-
-
-@pytest.fixture
-def virtual_packages_channel(channels: Path) -> str:
-    return channels.joinpath("virtual_packages").as_uri()
-
-
-@pytest.fixture
-def shortcuts_channel_1(channels: Path) -> str:
-    return channels.joinpath("shortcuts_channel_1").as_uri()
-
-
-@pytest.fixture
-def post_link_script_channel(channels: Path) -> str:
-    return channels.joinpath("post_link_script_channel").as_uri()
-
-
-@pytest.fixture
-def deno_channel(channels: Path) -> str:
-    return channels.joinpath("deno_channel").as_uri()
-
-
-@pytest.fixture
-def completions_channel_1(channels: Path) -> str:
-    return channels.joinpath("completions_channel_1").as_uri()
