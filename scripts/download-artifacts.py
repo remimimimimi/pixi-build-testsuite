@@ -15,20 +15,6 @@ from rich.progress import track
 console = Console()
 
 
-def get_github_os() -> str:
-    """Get the GitHub Actions OS string for artifact naming."""
-    system = platform.system().lower()
-
-    if system == "linux":
-        return "ubuntu-latest"
-    elif system == "darwin":
-        return "macos-latest"
-    elif system == "windows":
-        return "windows-latest"
-
-    raise ValueError(f"Unsupported platform: {system}")
-
-
 def get_current_platform() -> str:
     """Get the current platform string for pixi artifact naming."""
     system = platform.system().lower()
@@ -184,8 +170,8 @@ def download_github_artifact(
         current_platform = get_current_platform()
         console.print(f"[blue]Detected platform: {current_platform}")
     elif repo == "prefix-dev/pixi-build-backends":
-        current_platform = get_github_os()
-        console.print(f"[blue]Detected GitHub OS: {current_platform}")
+        current_platform = get_current_platform()
+        console.print(f"[blue]Detected platform: {current_platform}")
     else:
         raise ValueError(f"Unsupported repository: {repo}")
 
@@ -301,7 +287,7 @@ def main() -> None:
         workflow = "CI"
     elif args.repo == "pixi-build-backends":
         repo = "prefix-dev/pixi-build-backends"
-        workflow = "Rust"
+        workflow = "Testsuite"
 
     # Hardcode output directory to "artifacts"
     output_dir = Path("artifacts")
