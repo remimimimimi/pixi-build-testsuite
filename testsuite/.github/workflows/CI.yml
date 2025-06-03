@@ -34,10 +34,13 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
-      - name: Download artifacts
-        run: |
-          pixi run download-artifacts pixi
-          pixi run download-artifacts pixi-build-backends
+      - name: Download pixi artifacts
+        run: pixi run download-artifacts pixi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download pixi-build-backends artifacts
+        run: pixi run download-artifacts pixi-build-backends
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -70,11 +73,15 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
-      - name: Download artifacts
+      - name: Download pixi artifacts
         working-directory: ${{ env.PIXI_WORKSPACE }}
-        run: |
-          pixi run download-artifacts pixi
-          pixi run download-artifacts pixi-build-backends
+        run: pixi run download-artifacts pixi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download pixi-build-backends artifacts
+        working-directory: ${{ env.PIXI_WORKSPACE }}
+        run: pixi run download-artifacts pixi-build-backends
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -98,10 +105,13 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
-      - name: Download artifacts
-        run: |
-          pixi run download-artifacts pixi
-          pixi run download-artifacts pixi-build-backends
+      - name: Download pixi artifacts
+        run: pixi run download-artifacts pixi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download pixi-build-backends artifacts
+        run: pixi run download-artifacts pixi-build-backends
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
