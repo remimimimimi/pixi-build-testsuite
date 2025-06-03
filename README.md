@@ -7,7 +7,7 @@ This repo contains the testsuite that is used by both [Pixi] CI and [pixi-build-
 
 First make sure that you have both the [Pixi] and [pixi-build-backends] repositories checked out locally.
 
-The, create a `.env` file at the repository root with the paths to your checked out repositories filled in.
+Then, create a `.env` file at the repository root with the paths to your checked out repositories filled in.
 
 ```shell
 PIXI_REPO="/path/to/pixi-repository"
