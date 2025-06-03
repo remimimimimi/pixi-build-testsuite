@@ -92,36 +92,36 @@ jobs:
     timeout-minutes: 10
     name: Build | ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
+    env:
+      WORKSPACE_DIR: ${{ matrix.os == 'windows' && 'D:/a/pixi-build-testsuite' || github.workspace }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: linux
             arch: x86_64
             runner: 8core_ubuntu_latest_runner
-            workspace: ${{ github.workspace }}
           - os: windows
             arch: x86_64
             runner: windows-latest
-            workspace: "D:/a/pixi-build-testsuite"
           - os: macos
             arch: aarch64
             runner: macos-14
-            workspace: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      
+
       - name: Create Dev Drive (Windows)
         if: matrix.os == 'windows'
         run: ${{ github.workspace }}/.github/workflows/setup-dev-drive.ps1
-        
+
       - name: Copy Git Repo to Dev Drive (Windows)
         if: matrix.os == 'windows'
         run: |
-          Copy-Item -Path "${{ github.workspace }}" -Destination "${{ matrix.workspace }}" -Recurse
-          echo "${{ matrix.workspace }}/target/pixi/release" | Out-File -Append -Encoding utf8 -FilePath $env:GITHUB_PATH
+          Copy-Item -Path "${{ github.workspace }}" -Destination "${{ env.WORKSPACE_DIR }}" -Recurse
+          echo "${{ env.WORKSPACE_DIR }}/target/pixi/release" | Out-File -Append -Encoding utf8 -FilePath $env:GITHUB_PATH
         env:
           TARGET_RELEASE: "target/pixi/release"
-      
+
       - name: Set up pixi
         uses: prefix-dev/setup-pixi@main
         with:
@@ -143,11 +143,11 @@ jobs:
       - name: Setup unix binary permissions (Unix)
         if: matrix.os != 'windows'
         run: |
-          chmod a+x ${{ matrix.workspace }}/artifacts/pixi
+          chmod a+x ${{ env.WORKSPACE_DIR }}/artifacts/pixi
 
       - name: Run integration tests
         run: pixi run --locked test
-        working-directory: ${{ matrix.workspace }}
+        working-directory: ${{ env.WORKSPACE_DIR }}
         env:
-          PIXI_BIN_DIR: ${{ matrix.workspace }}/artifacts
-          BUILD_BACKENDS_BIN_DIR: ${{ matrix.workspace }}/artifacts
+          PIXI_BIN_DIR: ${{ env.WORKSPACE_DIR }}/artifacts
+          BUILD_BACKENDS_BIN_DIR: ${{ env.WORKSPACE_DIR }}/artifacts
