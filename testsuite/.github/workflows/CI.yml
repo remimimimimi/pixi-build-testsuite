@@ -19,6 +19,7 @@ env:
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
   PYTEST_ADDOPTS: "--color=yes"
+  PYTHONIOENCODING: utf-8
 
 jobs:
   test-linux-x86_64:
