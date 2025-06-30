@@ -147,7 +147,7 @@ def test_source_change_trigger_rebuild(pixi: Path, simple_workspace: Workspace) 
     assert conda_build_params.is_file()
 
 
-def test_host_dependency_change_trigger_rebuild(
+def test_project_model_change_trigger_rebuild(
     pixi: Path, simple_workspace: Workspace, dummy_channel_1: Path
 ) -> None:
     simple_workspace.write_files()
@@ -167,11 +167,10 @@ def test_host_dependency_change_trigger_rebuild(
     # Remove the conda build params to get a clean state
     conda_build_params.unlink()
 
-    # Add dummy-b to host-dependencies
-    simple_workspace.package_manifest["package"].setdefault("host-dependencies", {})["dummy-b"] = {
-        "version": "*",
-        "channel": dummy_channel_1,
-    }
+    # modify extra-input-globs
+    simple_workspace.package_manifest["package"]["build"]["configuration"].setdefault(
+        "extra-input-globs", ["*.md"]
+    )
     simple_workspace.write_files()
     verify_cli_command(
         [
@@ -182,7 +181,7 @@ def test_host_dependency_change_trigger_rebuild(
         ],
     )
 
-    # modifying the host-dependencies should trigger a rebuild and therefore create a file
+    # modifying the project model should trigger a rebuild and therefore create a file
     assert conda_build_params.is_file()
 
 
@@ -287,29 +286,53 @@ def test_build_using_rattler_build_backend(
     assert "array-api-extra" in package_to_be_built.name
     assert package_to_be_built.exists()
 
+    # load the json file
+    conda_meta = (
+        (manifest_path.parent / ".pixi/envs/default/conda-meta")
+        .glob("array-api-extra-*.json")
+        .__next__()
+    )
+    metadata = json.loads(conda_meta.read_text())
 
-@pytest.mark.slow
-def test_smokey(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
+    assert metadata["name"] == "array-api-extra"
+
+
+def test_error_manifest_deps(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     test_data = build_data.joinpath("rattler-build-backend")
     # copy the whole smokey project to the tmp_pixi_workspace
     shutil.copytree(test_data / "smokey", tmp_pixi_workspace / "smokey")
     manifest_path = tmp_pixi_workspace / "smokey" / "pixi.toml"
+
     verify_cli_command(
         [
             pixi,
             "install",
             "--manifest-path",
             manifest_path,
-        ]
+        ],
+        expected_exit_code=ExitCode.FAILURE,
+        stderr_contains="Specifying dependencies",
     )
 
-    # load the json file
-    conda_meta = (
-        (manifest_path.parent / ".pixi/envs/default/conda-meta").glob("smokey-*.json").__next__()
-    )
-    metadata = json.loads(conda_meta.read_text())
 
-    assert metadata["name"] == "smokey"
+def test_error_manifest_deps_no_default(
+    pixi: Path, build_data: Path, tmp_pixi_workspace: Path
+) -> None:
+    test_data = build_data.joinpath("rattler-build-backend")
+    # copy the whole smokey2 project to the tmp_pixi_workspace
+    shutil.copytree(test_data / "smokey2", tmp_pixi_workspace / "smokey2")
+    manifest_path = tmp_pixi_workspace / "smokey2" / "pixi.toml"
+
+    verify_cli_command(
+        [
+            pixi,
+            "install",
+            "--manifest-path",
+            manifest_path,
+        ],
+        expected_exit_code=ExitCode.FAILURE,
+        stderr_contains="Specifying dependencies",
+    )
 
 
 @pytest.mark.slow
