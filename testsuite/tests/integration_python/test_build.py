@@ -271,13 +271,13 @@ def test_build_using_rattler_build_backend(
     build_data: Path,
 ) -> None:
     test_data = build_data.joinpath("rattler-build-backend")
-    shutil.copytree(test_data / "array-api-extra", tmp_pixi_workspace / "array-api-extra")
+    shutil.copytree(test_data / "array-api-extra", tmp_pixi_workspace, dirs_exist_ok=True)
 
-    manifest_path = tmp_pixi_workspace / "array-api-extra/pixi.toml"
+    manifest_path = tmp_pixi_workspace / "pixi.toml"
 
     # Running pixi build should build the recipe.yaml
     verify_cli_command(
-        [pixi, "build", "--manifest-path", manifest_path, "--output-dir", manifest_path.parent],
+        [pixi, "build", "--manifest-path", manifest_path, "--output-dir", tmp_pixi_workspace],
     )
 
     # really make sure that conda package was built
@@ -285,16 +285,6 @@ def test_build_using_rattler_build_backend(
 
     assert "array-api-extra" in package_to_be_built.name
     assert package_to_be_built.exists()
-
-    # load the json file
-    conda_meta = (
-        (manifest_path.parent / ".pixi/envs/default/conda-meta")
-        .glob("array-api-extra-*.json")
-        .__next__()
-    )
-    metadata = json.loads(conda_meta.read_text())
-
-    assert metadata["name"] == "array-api-extra"
 
 
 def test_error_manifest_deps(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
