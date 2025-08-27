@@ -4,5 +4,11 @@ package:
 
 build:
   script:
-    - mkdir $PREFIX
-    - echo "hello from package a!" > $PREFIX/hi
+    interpreter: python
+    content: |
+      import os
+
+      os.makedirs(os.environ['PREFIX'], exists_ok=True)
+
+      with open(os.path.join(os.environ['PREFIX'], 'hi'), 'w') as f:
+          f.write("hello from package a!\n")

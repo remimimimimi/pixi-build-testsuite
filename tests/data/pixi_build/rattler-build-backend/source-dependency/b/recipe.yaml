@@ -4,9 +4,20 @@ package:
 
 build:
   script:
-    - cat $BUILD_PREFIX/hi
-    - mkdir $PREFIX
-    - cp $BUILD_PREFIX/hi $PREFIX/hi-from-a
+    interpreter: python
+    content: |
+      import os
+      import shutil
+
+      with open(os.path.join(os.environ['BUILD_PREFIX'], 'hi'), 'r') as f:
+          print(f.read(), end='')
+
+      os.makedirs(os.environ['PREFIX'], exist_ok=True)
+
+      shutil.copy2(
+          os.path.join(os.environ['BUILD_PREFIX'], 'hi'),
+          os.path.join(os.environ['PREFIX'], 'hi-from-a')
+      )
 
 requirements:
   build:
