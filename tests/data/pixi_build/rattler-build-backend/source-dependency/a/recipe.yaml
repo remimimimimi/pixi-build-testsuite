@@ -4,5 +4,10 @@ package:
 
 build:
   script:
-    - mkdir $PREFIX
-    - echo "hello from package a!" > $PREFIX/hi
+    - if: win
+      then: |
+        mkdir "%PREFIX%"
+        echo echo hello from package a! > "%PREFIX%\hi"
+      else: |
+        mkdir $PREFIX
+        echo "hello from package a!" > $PREFIX/hi
