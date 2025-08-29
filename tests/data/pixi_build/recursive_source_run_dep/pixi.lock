@@ -452,7 +452,7 @@ packages:
   - python
   - python *
   input:
-    hash: 79e0338812fd1e39475c0e314ed3a5b99c758af3c2d5d2957832ca795afc41f2
+    hash: 11285b795117818c13b0571cfc8591aa6707f60529e6957863c95f3e48aa99a5
     globs:
     - pyproject.toml
   sources:
@@ -464,7 +464,7 @@ packages:
   build: h60d57d3_0
   subdir: osx-arm64
   input:
-    hash: 73d5da015a64ec1a51bd4a37a422d1dbbbded5af703a129fac11329c619d81a1
+    hash: fd3c056c904e0eee0c3b5452d2e8642fd3488f82d2772365c50d14bfa014aa0e
     globs:
     - variants.yaml
 - conda: package_b
@@ -473,7 +473,7 @@ packages:
   build: h9490d1a_0
   subdir: win-64
   input:
-    hash: 73d5da015a64ec1a51bd4a37a422d1dbbbded5af703a129fac11329c619d81a1
+    hash: fd3c056c904e0eee0c3b5452d2e8642fd3488f82d2772365c50d14bfa014aa0e
     globs:
     - variants.yaml
 - conda: package_b
@@ -482,7 +482,7 @@ packages:
   build: hb0f4dca_0
   subdir: linux-64
   input:
-    hash: 73d5da015a64ec1a51bd4a37a422d1dbbbded5af703a129fac11329c619d81a1
+    hash: fd3c056c904e0eee0c3b5452d2e8642fd3488f82d2772365c50d14bfa014aa0e
     globs:
     - variants.yaml
 - conda: https://prefix.dev/conda-forge/linux-64/python-3.13.5-hec9711d_102_cp313.conda
