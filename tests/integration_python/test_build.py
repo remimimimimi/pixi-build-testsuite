@@ -503,6 +503,7 @@ def test_source_path(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> 
     built_packages = list(tmp_pixi_workspace.glob("*.conda"))
     assert len(built_packages) == 1
 
+
 @pytest.mark.slow
 def test_git_path(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     """
