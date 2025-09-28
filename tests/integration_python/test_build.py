@@ -1,8 +1,12 @@
+import json
+import shutil
+from typing import Any
 from pathlib import Path
 
 import pytest
 import tomli_w
 import tomllib
+import yaml
 
 from .common import (
     CURRENT_PLATFORM,
@@ -505,6 +509,29 @@ def test_extra_args(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> N
     assert target_dir.joinpath("src", "mybuilddir", "build.ninja").is_file()
 
 
+def extract_git_sources(lock_file: Path) -> list[str]:
+    data = yaml.safe_load(lock_file.read_text())
+
+    def iter_entries() -> Any:
+        yield from data.get("packages", [])
+
+        for env_cfg in data.get("environments", {}).values():
+            for platform_packages in env_cfg.get("packages", {}).values():
+                yield from platform_packages
+
+    serialized_sources: list[str] = []
+    for entry in iter_entries():
+        if isinstance(entry, dict) and entry.get("conda") == ".":
+            package_build_source = entry.get("package_build_source")
+            if package_build_source is not None:
+                serialized_sources.append(json.dumps(package_build_source, sort_keys=True))
+
+    assert serialized_sources, (
+        "expected at least one git package with package_build_source in pixi.lock"
+    )
+    return sorted(serialized_sources)
+
+
 def test_target_specific_dependency(
     pixi: Path, build_data: Path, tmp_pixi_workspace: Path, target_specific_channel_1: str
 ) -> None:
@@ -529,7 +556,7 @@ def test_target_specific_dependency(
 
 
 @pytest.mark.slow
-def test_git_path(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
+def test_git_path_build(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     """
     Test git path in `[package.build.source]`
     """
@@ -553,3 +580,88 @@ def test_git_path(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> Non
     # Ensure that exactly one conda package has been built
     built_packages = list(tmp_pixi_workspace.glob("*.conda"))
     assert len(built_packages) == 1
+
+
+@pytest.mark.slow
+def test_git_path_lock_behaviour(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
+    """Exercise git source locking behaviour when switching manifest branches."""
+
+    project = "cpp-with-git-source"
+    test_data = build_data.joinpath(project)
+
+    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True, copy_function=shutil.copy)
+
+    # 1. Update lock file and extract sources
+    verify_cli_command(
+        [pixi, "lock", "-v", "--manifest-path", tmp_pixi_workspace],
+    )
+
+    lock_path = tmp_pixi_workspace / "pixi.lock"
+    initial_sources = extract_git_sources(lock_path)
+
+    # 2. Installing with --locked should succeed without touching the lock file.
+    verify_cli_command(
+        [pixi, "install", "-v", "--manifest-path", tmp_pixi_workspace, "--locked"],
+    )
+    assert extract_git_sources(lock_path) == initial_sources
+
+    # 3. Switch the manifest to consume a git branch and update the lockfile.
+    manifest_path = tmp_pixi_workspace / "pixi.toml"
+    manifest = tomllib.loads(manifest_path.read_text())
+    manifest["package"]["build"]["source"].pop("rev", None)
+    manifest["package"]["build"]["source"]["branch"] = "fix/logging_tests"
+    manifest_path.write_text(tomli_w.dumps(manifest))
+
+    # 4. A locked install should fail until the lock is refreshed, and the lock must remain unchanged.
+    verify_cli_command(
+        [pixi, "install", "-v", "--manifest-path", tmp_pixi_workspace, "--locked"],
+        expected_exit_code=ExitCode.FAILURE,
+    )
+    assert extract_git_sources(lock_path) == initial_sources
+
+    # 5. Relocking should refresh the git package build source metadata.
+    verify_cli_command(
+        [
+            pixi,
+            "lock",
+            "-v",
+            "--manifest-path",
+            tmp_pixi_workspace,
+        ],
+    )
+    refreshed_sources = extract_git_sources(lock_path)
+    assert refreshed_sources != initial_sources
+
+    # 6. A final locked install should succeed and leave the lock untouched.
+    verify_cli_command(
+        [pixi, "install", "-v", "--manifest-path", tmp_pixi_workspace, "--locked"],
+    )
+    assert extract_git_sources(lock_path) == refreshed_sources
+
+
+@pytest.mark.slow
+def test_git_path_lock_update_preserves_git_source(
+    pixi: Path, build_data: Path, tmp_pixi_workspace: Path
+) -> None:
+    """Ensure updating another dependency leaves git package_build_source untouched."""
+
+    project = "cpp-with-git-source"
+    test_data = build_data.joinpath(project)
+
+    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True, copy_function=shutil.copy)
+
+    lock_path = tmp_pixi_workspace / "pixi.lock"
+    initial_sources = extract_git_sources(lock_path)
+
+    verify_cli_command(
+        [
+            pixi,
+            "update",
+            "-v",
+            "--manifest-path",
+            tmp_pixi_workspace,
+            "sdl2",
+        ],
+    )
+
+    assert extract_git_sources(lock_path) == initial_sources
