@@ -21,8 +21,10 @@ description = "Showcases how to create a simple C++ executable with Pixi"
 name = "sdl_example"
 version = "0.1.0"
 
-[package.build]
-source = { git = "https://github.com/prefix-dev/pixi-build-testsuite.git", rev = "ee87916a49d5e96d4f322f68c3650e8ff6b8866b", subdirectory = "tests/data/pixi_build/cpp-with-path-to-source/project" }
+[package.build.source]
+branch = "main"
+git = "https://github.com/prefix-dev/pixi-build-testsuite.git"
+subdirectory = "tests/data/pixi_build/cpp-with-path-to-source/project"
 
 [package.build.backend]
 channels = [
