@@ -150,6 +150,7 @@ def _validate_artifact_sources() -> None:
 @pytest.fixture(scope="session", autouse=True)
 def load_dotenv() -> None:
     dotenv.load_dotenv(override=True)
+    dotenv.load_dotenv(override=True, dotenv_path=Path(__file__).parents[2].joinpath(".env.ci"))
     _validate_artifact_sources()
 
 
