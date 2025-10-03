@@ -1,6 +1,7 @@
 import json
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -23,15 +24,18 @@ def _prepare_ros_workspace(build_data: Path, tmp_pixi_workspace: Path) -> Path:
     return tmp_pixi_workspace
 
 
-def _load_package_metadata(project_root: Path, package_name: str) -> dict:
+def _load_package_metadata(project_root: Path, package_name: str) -> dict[str, Any]:
     metadata_root = project_root.joinpath(".pixi", "build", "metadata-v0")
     assert metadata_root.exists(), f"metadata directory missing for {package_name}"
-    selected_metadata: dict | None = None
+    selected_metadata: dict[str, Any] | None = None
     selected_mtime: float = -1.0
     for metadata_file in metadata_root.rglob("metadata.json"):
         metadata = json.loads(metadata_file.read_text())
         outputs = metadata.get("outputs", [])
-        if any(output.get("metadata", {}).get("name") == package_name for output in outputs):
+        if any(
+            isinstance(output, dict) and output.get("metadata", {}).get("name") == package_name
+            for output in outputs
+        ):
             mtime = metadata_file.stat().st_mtime
             if mtime > selected_mtime:
                 selected_metadata = metadata
@@ -118,11 +122,13 @@ def test_ros_rebuild_on_source_change(
             ]
         )
         metadata = _load_package_metadata(workspace, package_name)
-        return metadata.get("input_hash", {}).get("hash", "")
+        hash_value = metadata.get("input_hash", {}).get("hash", "")
+        assert isinstance(hash_value, str)
+        return hash_value
 
     initial_hash = build_and_get_hash()
 
-        # pprint(metadata)
+    # pprint(metadata)
     source_file = workspace.joinpath("src", "talker-py", "talker_py", "talker.py")
     source_file.write_text(source_file.read_text() + "\n# trigger rebuild\n")
 
