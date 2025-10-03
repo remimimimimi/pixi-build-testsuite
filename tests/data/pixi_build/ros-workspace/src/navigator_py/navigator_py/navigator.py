@@ -4,9 +4,10 @@ from geometry_msgs.msg import Point, Twist
 from turtlesim.msg import Pose
 import math
 
+
 class TurtleNavigator(Node):
     def __init__(self):
-        super().__init__(node_name='turtle_navigator')
+        super().__init__(node_name="turtle_navigator")
         self.x_goal = 5.0
         self.y_goal = 5.0
         self.kp = 1.0
@@ -15,17 +16,11 @@ class TurtleNavigator(Node):
         self.prev_error = 0.0
         self.integral = 0.0
 
-        self.subscription = self.create_subscription(
-            Point,
-            'coordinates',
-            self.goal_callback,
-            10)
+        self.subscription = self.create_subscription(Point, "coordinates", self.goal_callback, 10)
         self.pose_subscription = self.create_subscription(
-            Pose,
-            'turtle1/pose',
-            self.pose_callback,
-            10)
-        self.publisher = self.create_publisher(Twist, 'turtle1/cmd_vel', 10)
+            Pose, "turtle1/pose", self.pose_callback, 10
+        )
+        self.publisher = self.create_publisher(Twist, "turtle1/cmd_vel", 10)
 
         self.timer = self.create_timer(0.1, self.control_loop)
 
@@ -36,7 +31,7 @@ class TurtleNavigator(Node):
     def goal_callback(self, msg):
         self.x_goal = msg.x
         self.y_goal = msg.y
-        self.get_logger().info(f'Received goal: x={self.x_goal}, y={self.y_goal}')
+        self.get_logger().info(f"Received goal: x={self.x_goal}, y={self.y_goal}")
 
     def pose_callback(self, msg):
         self.x_current = msg.x
@@ -46,7 +41,7 @@ class TurtleNavigator(Node):
     def control_loop(self):
         error_x = self.x_goal - self.x_current
         error_y = self.y_goal - self.y_current
-        distance_error = math.sqrt(error_x ** 2 + error_y ** 2)
+        distance_error = math.sqrt(error_x**2 + error_y**2)
 
         angle_to_goal = math.atan2(error_y, error_x)
         angle_error = angle_to_goal - self.theta_current
@@ -59,9 +54,9 @@ class TurtleNavigator(Node):
 
         # PID control
         control_signal = (
-                self.kp * distance_error
-                + self.ki * self.integral
-                + self.kd * (distance_error - self.prev_error)
+            self.kp * distance_error
+            + self.ki * self.integral
+            + self.kd * (distance_error - self.prev_error)
         )
         self.integral += distance_error
         self.prev_error = distance_error
@@ -79,6 +74,7 @@ class TurtleNavigator(Node):
 
         self.publisher.publish(msg)
 
+
 def main(args=None):
     rclpy.init(args=args)
     print("Turtle Navigator")
@@ -88,5 +84,6 @@ def main(args=None):
     turtle_navigator.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
