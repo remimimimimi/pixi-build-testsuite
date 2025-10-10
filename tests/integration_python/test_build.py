@@ -1,6 +1,6 @@
 import json
 import shutil
-from typing import Any
+from typing import Any, Iterator
 from pathlib import Path
 
 import pytest
@@ -738,6 +738,91 @@ def test_git_path_lock_branch_records_branch_metadata(
     verify_cli_command(
         [pixi, "install", "-v", "--manifest-path", tmp_pixi_workspace, "--locked"],
     )
+
+
+@pytest.mark.slow
+def test_git_path_build_have_absolutely_no_respect_to_lock_file(
+    pixi: Path,
+    build_data: Path,
+    tmp_pixi_workspace: Path,
+    local_cpp_git_repo: LocalGitRepo,
+) -> None:
+    prepare_cpp_git_workspace(
+        tmp_pixi_workspace, build_data, local_cpp_git_repo, branch="other-feature"
+    )
+
+    lock_path = tmp_pixi_workspace / "pixi.lock"
+    verify_cli_command(
+        [pixi, "lock", "-v", "--manifest-path", tmp_pixi_workspace],
+    )
+
+    initial_sources = extract_git_sources(lock_path)
+    assert any(local_cpp_git_repo.other_feature_rev in entry for entry in initial_sources)
+
+    repo_path = local_cpp_git_repo.path
+    main_path = repo_path.joinpath("project", "src", "main.cc")
+    verify_cli_command([pixi, "run", "git", "checkout", "other-feature"], cwd=repo_path)
+    main_path.write_text(
+        main_path.read_text(encoding="utf-8").replace(
+            "Usage: sdl-example [options]", "Usage: sdl-example v2 [options]"
+        ),
+        encoding="utf-8",
+    )
+    verify_cli_command(
+        [pixi, "run", "git", "add", main_path.relative_to(repo_path).as_posix()],
+        cwd=repo_path,
+    )
+    verify_cli_command(
+        [pixi, "run", "git", "commit", "-m", "Update branch for pixi build test"],
+        cwd=repo_path,
+    )
+    new_branch_rev = verify_cli_command(
+        [pixi, "run", "git", "rev-parse", "HEAD"], cwd=repo_path
+    ).stdout.strip()
+    assert new_branch_rev != local_cpp_git_repo.other_feature_rev
+
+    verify_cli_command(
+        [
+            pixi,
+            "build",
+            "-v",
+            "--manifest-path",
+            tmp_pixi_workspace,
+            "--output-dir",
+            tmp_pixi_workspace,
+        ],
+    )
+
+    built_packages = list(tmp_pixi_workspace.glob("*.conda"))
+    assert built_packages
+
+    # lock file should remain untouched when running `pixi build`
+    assert extract_git_sources(lock_path) == initial_sources
+
+    work_dir = tmp_pixi_workspace / ".pixi" / "build" / "work"
+    assert work_dir.exists()
+
+    target_phrase = b"Usage: sdl-example v2 [options]"
+    legacy_phrase = b"Usage: sdl-example [options]"
+
+    def iter_candidate_files() -> Iterator[Path]:
+        for path in work_dir.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix in {".o", ".bin", ".txt", ".json"} or "sdl_example" in path.name:
+                yield path
+
+    found = []
+    for candidate in iter_candidate_files():
+        try:
+            data = candidate.read_bytes()
+        except OSError:
+            continue
+        if target_phrase in data:
+            found.append(candidate)
+        assert legacy_phrase not in data, f"found legacy string in {candidate}"
+
+    assert found, "expected build artifacts to include updated branch contents"
 
 
 @pytest.mark.slow
