@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from .common import verify_cli_command
+from .common import copytree_with_local_backend, verify_cli_command
 
 
 ROS_WORKSPACE_NAME = "ros-workspace"
@@ -20,7 +20,7 @@ ROS_PACKAGE_OUTPUT_NAMES = {
 def _prepare_ros_workspace(build_data: Path, tmp_pixi_workspace: Path) -> Path:
     workspace_src = build_data.joinpath(ROS_WORKSPACE_NAME)
     shutil.rmtree(tmp_pixi_workspace.joinpath(".pixi", "build"), ignore_errors=True)
-    shutil.copytree(workspace_src, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(workspace_src, tmp_pixi_workspace, dirs_exist_ok=True)
     return tmp_pixi_workspace
 
 

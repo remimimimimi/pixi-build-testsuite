@@ -36,6 +36,12 @@ class PixiBuildError(Exception):
     pass
 
 
+class PixiChannelError(Exception):
+    """Raised when creating the testsuite channel fails."""
+
+    pass
+
+
 def run_command(
     cmd: list[str],
     cwd: Path | None = None,
@@ -144,6 +150,80 @@ def build_ros_backend(repo_path: Path) -> None:
     print("✅ Successfully built pixi-build-ros backend")
 
 
+def prepare_legacy_backends(repo_path: Path, project_root: Path) -> None:
+    """Fallback path that copies built backend executables into the artifacts directory."""
+    target_release = repo_path / "target" / "pixi" / "release"
+    if not target_release.is_dir():
+        raise PixiChannelError(
+            f"Legacy fallback failed: {target_release} does not exist. "
+            "Ensure 'pixi run build-release' completed successfully."
+        )
+
+    destination = project_root / "artifacts" / "pixi-build-backends"
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+
+    backend_files = list(target_release.glob("pixi-build-*"))
+    if not backend_files:
+        raise PixiChannelError(
+            "Legacy fallback failed: No pixi-build-* executables found in "
+            f"{target_release}. Verify the build completed successfully."
+        )
+
+    for backend_file in backend_files:
+        if backend_file.is_file():
+            shutil.copy2(backend_file, destination.joinpath(backend_file.name))
+
+    print(f"✅ Backends copied to {destination} (legacy layout)")
+
+
+def create_testsuite_channel(repo_path: Path, project_root: Path) -> None:
+    """Create the local testsuite channel and move it into this repository."""
+    channel_source = repo_path / "artifacts-channel"
+    channel_target = project_root / "artifacts" / "pixi-build-backends"
+
+    if channel_source.exists():
+        print("🧹 Removing existing channel directory before rebuilding")
+        shutil.rmtree(channel_source)
+
+    print("📦 Creating testsuite channel")
+    returncode, stdout, stderr = run_command(
+        ["pixi", "run", "create-testsuite-channel"], cwd=repo_path
+    )
+    combined_output = "\n".join(part for part in [stdout, stderr] if part)
+
+    if returncode != 0:
+        if "Available tasks" in combined_output:
+            print(
+                "ℹ️  'create-testsuite-channel' task not available; falling back to legacy backend layout"
+            )
+            prepare_legacy_backends(repo_path, project_root)
+            return
+
+        error_msg = "Failed to create testsuite channel"
+        if stderr:
+            error_msg += f": {stderr}"
+        if stdout:
+            error_msg += f" (Output: {stdout})"
+        raise PixiChannelError(error_msg)
+
+    if not channel_source.exists():
+        raise PixiChannelError(
+            f"Expected channel directory '{channel_source}' was not created. "
+            "Verify that 'pixi run create-testsuite-channel' completed successfully."
+        )
+
+    if channel_target.exists():
+        print(f"🧹 Removing existing channel at {channel_target}")
+        shutil.rmtree(channel_target)
+
+    channel_target.parent.mkdir(parents=True, exist_ok=True)
+    print(f"🚚 Moving channel from {channel_source} to {channel_target}")
+    shutil.move(str(channel_source), channel_target)
+    print("✅ Testsuite channel ready")
+
+
 def process_repository(repo_path: Path, repo_name: str) -> None:
     """Process a single repository: verify, pull if on main, and build."""
     print(f"\n{'=' * 60}")
@@ -174,7 +254,8 @@ def process_repository(repo_path: Path, repo_name: str) -> None:
 def main() -> None:
     """Main function to process repositories."""
     # Load environment variables from .env file
-    env_file = Path(__file__).parent.parent / ".env"
+    project_root = Path(__file__).parent.parent
+    env_file = project_root / ".env"
     if env_file.exists():
         load_dotenv(env_file, override=True)
         print(f"✅ Loaded environment variables from {env_file}")
@@ -212,6 +293,7 @@ def main() -> None:
     try:
         process_repository(build_backends_repo_path, "BUILD_BACKENDS_REPO")
         build_ros_backend(build_backends_repo_path)
+        create_testsuite_channel(build_backends_repo_path, project_root)
     except Exception as e:
         print(f"❌ Error processing BUILD_BACKENDS_REPO: {e}")
         success = False

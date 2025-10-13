@@ -139,47 +139,91 @@ def download_and_extract_artifact(
             console.print(f"[green]Successfully downloaded pixi binary to: {final_path}")
 
         elif repo == "prefix-dev/pixi-build-backends":
-            # Extract all pixi-build-* executables
-            backend_executables = []
-            is_windows = sys.platform.startswith("win")
+            # Detect whether the artifact contains raw executables (legacy) or a packaged channel (current).
+            legacy_executables = [
+                file_name
+                for file_name in file_list
+                if Path(file_name).name.startswith("pixi-build-")
+            ]
 
-            for file_name in file_list:
-                base_name = Path(file_name).name
-                if base_name.startswith("pixi-build-"):
-                    # On Windows, expect .exe extension; on others, no extension
+            if legacy_executables:
+                console.print("[yellow]Detected legacy backend executables artifact")
+                is_windows = sys.platform.startswith("win")
+                backend_executables = []
+
+                for file_name in legacy_executables:
+                    base_name = Path(file_name).name
                     if is_windows and base_name.endswith(".exe"):
                         backend_executables.append(file_name)
                     elif not is_windows and not base_name.endswith(".exe") and "." not in base_name:
                         backend_executables.append(file_name)
 
-            if not backend_executables:
-                console.print("[red]Could not find any pixi-build-* executables in archive")
-                raise FileNotFoundError(
-                    f"Could not find any pixi-build-* executables in archive. Archive contents: {file_list}"
-                )
+                if not backend_executables:
+                    console.print("[red]Could not find any pixi-build-* executables in archive")
+                    raise FileNotFoundError(
+                        "Could not find any pixi-build-* executables in archive. "
+                        f"Archive contents: {file_list}"
+                    )
 
-            console.print(f"[blue]Found {len(backend_executables)} backend executable(s)")
+                console.print(f"[blue]Found {len(backend_executables)} backend executable(s)")
 
-            # Extract all executables
-            for executable in backend_executables:
-                final_path = output_dir / Path(executable).name
-                if final_path.exists():
-                    if final_path.is_dir():
-                        shutil.rmtree(final_path)
-                    else:
-                        final_path.unlink()
+                for executable in backend_executables:
+                    final_path = output_dir / Path(executable).name
+                    if final_path.exists():
+                        if final_path.is_dir():
+                            shutil.rmtree(final_path)
+                        else:
+                            final_path.unlink()
 
-                zip_ref.extract(executable, output_dir)
-                extracted_path = output_dir / executable
+                    zip_ref.extract(executable, output_dir)
+                    extracted_path = output_dir / executable
 
-                if extracted_path != final_path:
-                    extracted_path.rename(final_path)
+                    if extracted_path != final_path:
+                        extracted_path.rename(final_path)
 
-                # Make executable on Unix systems
-                if not sys.platform.startswith("win"):
-                    final_path.chmod(0o755)
+                    if not sys.platform.startswith("win"):
+                        final_path.chmod(0o755)
 
-                console.print(f"[green]Extracted executable: {final_path}")
+                    console.print(f"[green]Extracted executable: {final_path}")
+            else:
+                console.print("[blue]Detected backend channel artifact")
+                temp_dir = Path(tempfile.mkdtemp(prefix="pixi-backends-"))
+                try:
+                    zip_ref.extractall(temp_dir)
+
+                    # Some artifacts store the channel inside an additional zip archive.
+                    nested_zips = list(temp_dir.rglob("*.zip"))
+                    for nested_zip in nested_zips:
+                        console.print(f"[blue]Unpacking nested archive: {nested_zip.name}")
+                        with zipfile.ZipFile(nested_zip, "r") as nested_zip_ref:
+                            nested_zip_ref.extractall(nested_zip.parent)
+                        nested_zip.unlink()
+
+                    repodata_files = sorted(
+                        list(temp_dir.rglob("repodata.json"))
+                        + list(temp_dir.rglob("repodata.json.zst"))
+                    )
+
+                    if not repodata_files:
+                        raise FileNotFoundError(
+                            "Could not locate a channel directory inside the artifact. "
+                            f"Archive contents: {file_list}"
+                        )
+
+                    channel_dir = repodata_files[0].parent.parent
+
+                    final_channel_path = output_dir / "pixi-build-backends"
+                    if final_channel_path.exists():
+                        console.print(f"[yellow]Removing existing channel at {final_channel_path}")
+                        shutil.rmtree(final_channel_path)
+
+                    final_channel_path.parent.mkdir(parents=True, exist_ok=True)
+                    console.print(f"[blue]Moving channel to {final_channel_path}")
+                    shutil.move(str(channel_dir), final_channel_path)
+
+                    console.print(f"[green]Channel ready at: {final_channel_path}")
+                finally:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
 
         else:
             raise ValueError(f"Unsupported repository: {repo}")

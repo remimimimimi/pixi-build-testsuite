@@ -1,8 +1,14 @@
-from pathlib import Path
 import shutil
+from pathlib import Path
+
 import pytest
 
-from .common import CURRENT_PLATFORM, verify_cli_command
+from .common import (
+    CURRENT_PLATFORM,
+    copy_manifest,
+    copytree_with_local_backend,
+    verify_cli_command,
+)
 
 
 @pytest.mark.slow
@@ -13,7 +19,7 @@ def test_build_git_source_deps(pixi: Path, tmp_pixi_workspace: Path, build_data:
 
     project = build_data / "rich_example"
     target_git_dir = tmp_pixi_workspace / "git_project"
-    shutil.copytree(project, target_git_dir)
+    copytree_with_local_backend(project, target_git_dir)
     shutil.rmtree(target_git_dir.joinpath(".pixi"), ignore_errors=True)
 
     # init it as a git repo and commit all files
@@ -32,9 +38,7 @@ def test_build_git_source_deps(pixi: Path, tmp_pixi_workspace: Path, build_data:
 
     minimal_workspace = tmp_pixi_workspace / "minimal_workspace"
     minimal_workspace.mkdir()
-    shutil.copyfile(
-        build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml"
-    )
+    copy_manifest(build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml")
 
     # edit the minimal_workspace to include the git_project
     workspace_manifest = minimal_workspace / "pixi.toml"
@@ -99,7 +103,7 @@ def test_build_git_source_deps_from_branch(
     project = build_data / "rich_example"
     target_git_dir = tmp_pixi_workspace / "git_project"
     shutil.rmtree(project.joinpath(".pixi"), ignore_errors=True)
-    shutil.copytree(project, target_git_dir)
+    copytree_with_local_backend(project, target_git_dir)
 
     # init it as a git repo and commit all files to a test-branch
     verify_cli_command(["git", "init"], cwd=target_git_dir)
@@ -119,9 +123,7 @@ def test_build_git_source_deps_from_branch(
 
     minimal_workspace = tmp_pixi_workspace / "minimal_workspace"
     minimal_workspace.mkdir()
-    shutil.copyfile(
-        build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml"
-    )
+    copy_manifest(build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml")
 
     # edit the minimal_workspace to include the git_project
     workspace_manifest = minimal_workspace / "pixi.toml"
@@ -164,7 +166,7 @@ def test_build_git_source_deps_from_rev(
 
     project = build_data / "rich_example"
     target_git_dir = tmp_pixi_workspace / "git_project"
-    shutil.copytree(project, target_git_dir)
+    copytree_with_local_backend(project, target_git_dir)
     shutil.rmtree(target_git_dir.joinpath(".pixi"), ignore_errors=True)
 
     # init it as a git repo and commit all files to a test-branch
@@ -183,9 +185,7 @@ def test_build_git_source_deps_from_rev(
 
     minimal_workspace = tmp_pixi_workspace / "minimal_workspace"
     minimal_workspace.mkdir()
-    shutil.copyfile(
-        build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml"
-    )
+    copy_manifest(build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml")
 
     # edit the minimal_workspace to include the git_project
     workspace_manifest = minimal_workspace / "pixi.toml"
@@ -232,7 +232,7 @@ def test_build_git_source_deps_from_tag(
     project = build_data / "rich_example"
     target_git_dir = tmp_pixi_workspace / "git_project"
     shutil.rmtree(project.joinpath(".pixi"), ignore_errors=True)
-    shutil.copytree(project, target_git_dir)
+    copytree_with_local_backend(project, target_git_dir)
 
     # init it as a git repo and commit all files to a tag called v1.0.0
     verify_cli_command(["git", "init"], cwd=target_git_dir)
@@ -251,9 +251,7 @@ def test_build_git_source_deps_from_tag(
 
     minimal_workspace = tmp_pixi_workspace / "minimal_workspace"
     minimal_workspace.mkdir()
-    shutil.copyfile(
-        build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml"
-    )
+    copy_manifest(build_data / "manifests" / "workspace_git.toml", minimal_workspace / "pixi.toml")
 
     # edit the minimal_workspace to include the git_project
     workspace_manifest = minimal_workspace / "pixi.toml"

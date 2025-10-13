@@ -1,11 +1,17 @@
-import shutil
 from pathlib import Path
 
 import pytest
 import tomli_w
 import tomllib
 
-from .common import CURRENT_PLATFORM, ExitCode, Workspace, verify_cli_command
+from .common import (
+    CURRENT_PLATFORM,
+    ExitCode,
+    Workspace,
+    copy_manifest,
+    copytree_with_local_backend,
+    verify_cli_command,
+)
 
 
 def test_build_conda_package(
@@ -199,7 +205,7 @@ def test_editable_pyproject(pixi: Path, build_data: Path, tmp_pixi_workspace: Pa
     test_data = build_data.joinpath(project)
 
     target_dir = tmp_pixi_workspace.joinpath(project)
-    shutil.copytree(test_data, target_dir)
+    copytree_with_local_backend(test_data, target_dir)
     manifest_path = target_dir.joinpath("pyproject.toml")
 
     verify_cli_command(
@@ -236,7 +242,7 @@ def test_non_editable_pyproject(pixi: Path, build_data: Path, tmp_pixi_workspace
     test_data = build_data.joinpath(project)
 
     target_dir = tmp_pixi_workspace.joinpath(project)
-    shutil.copytree(test_data, target_dir)
+    copytree_with_local_backend(test_data, target_dir)
     manifest_path = target_dir.joinpath("pyproject.toml")
 
     env = {
@@ -277,7 +283,9 @@ def test_build_using_rattler_build_backend(
     build_data: Path,
 ) -> None:
     test_data = build_data.joinpath("rattler-build-backend")
-    shutil.copytree(test_data / "array-api-extra", tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(
+        test_data / "array-api-extra", tmp_pixi_workspace, dirs_exist_ok=True
+    )
 
     manifest_path = tmp_pixi_workspace / "pixi.toml"
 
@@ -310,7 +318,7 @@ def test_incremental_builds(
     non_incremental_evidence: str,
 ) -> None:
     test_workspace = build_data / "minimal-backend-workspaces" / backend
-    shutil.copytree(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
     manifest_path = tmp_pixi_workspace / "pixi.toml"
 
     verify_cli_command(
@@ -330,7 +338,7 @@ def test_incremental_builds(
 def test_error_manifest_deps(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     test_data = build_data.joinpath("rattler-build-backend")
     # copy the whole smokey project to the tmp_pixi_workspace
-    shutil.copytree(test_data / "smokey", tmp_pixi_workspace / "smokey")
+    copytree_with_local_backend(test_data / "smokey", tmp_pixi_workspace / "smokey")
     manifest_path = tmp_pixi_workspace / "smokey" / "pixi.toml"
 
     verify_cli_command(
@@ -351,7 +359,7 @@ def test_error_manifest_deps_no_default(
 ) -> None:
     test_data = build_data.joinpath("rattler-build-backend")
     # copy the whole smokey2 project to the tmp_pixi_workspace
-    shutil.copytree(test_data / "smokey2", tmp_pixi_workspace / "smokey2")
+    copytree_with_local_backend(test_data / "smokey2", tmp_pixi_workspace / "smokey2")
     manifest_path = tmp_pixi_workspace / "smokey2" / "pixi.toml"
 
     verify_cli_command(
@@ -372,7 +380,9 @@ def test_rattler_build_source_dependency(
 ) -> None:
     test_data = build_data.joinpath("rattler-build-backend")
     # copy the whole smokey2 project to the tmp_pixi_workspace
-    shutil.copytree(test_data / "source-dependency", tmp_pixi_workspace / "source-dependency")
+    copytree_with_local_backend(
+        test_data / "source-dependency", tmp_pixi_workspace / "source-dependency"
+    )
     manifest_path = tmp_pixi_workspace / "source-dependency" / "b" / "pixi.toml"
 
     verify_cli_command(
@@ -399,7 +409,7 @@ def test_recursive_source_run_dependencies(
     project = "recursive_source_run_dep"
     test_data = build_data.joinpath(project)
 
-    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
     manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
 
     verify_cli_command(
@@ -432,7 +442,7 @@ def test_maturin(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None
     project = "maturin"
     test_data = build_data.joinpath(project)
 
-    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
     manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
 
     verify_cli_command(
@@ -458,7 +468,7 @@ def test_recursive_source_build_dependencies(
     project = "recursive_source_build_dep"
     test_data = build_data.joinpath(project)
 
-    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
     manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
 
     verify_cli_command(
@@ -493,7 +503,9 @@ def test_source_path(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> 
     project = "cpp-with-path-to-source"
     test_data = build_data.joinpath(project)
 
-    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True, copy_function=shutil.copy)
+    copytree_with_local_backend(
+        test_data, tmp_pixi_workspace, dirs_exist_ok=True, copy_function=copy_manifest
+    )
 
     verify_cli_command(
         [
@@ -521,7 +533,7 @@ def test_extra_args(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> N
     test_data = build_data.joinpath(project)
 
     target_dir = tmp_pixi_workspace.joinpath(project)
-    shutil.copytree(test_data, target_dir)
+    copytree_with_local_backend(test_data, target_dir)
     manifest_path = target_dir.joinpath("pixi.toml")
 
     verify_cli_command(
@@ -547,7 +559,7 @@ def test_target_specific_dependency(
     test_data = build_data.joinpath(project)
 
     target_dir = tmp_pixi_workspace.joinpath(project)
-    shutil.copytree(test_data, target_dir)
+    copytree_with_local_backend(test_data, target_dir)
     manifest_path = target_dir.joinpath("pixi.toml")
 
     manifest = tomllib.loads(manifest_path.read_text())

@@ -1,8 +1,8 @@
 import os
 import platform
+import re
 import shutil
 import subprocess
-import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import IntEnum
@@ -26,6 +26,87 @@ name = "test"
 channels = []
 platforms = ["{CURRENT_PLATFORM}"]
 """
+
+REMOTE_BACKEND_CHANNEL = "https://prefix.dev/pixi-build-backends"
+_TEXT_FILE_SUFFIXES = {".toml", ".lock", ".yaml", ".yml", ".json"}
+_LOCAL_BACKEND_CHANNEL_URI: str | None = None
+
+
+def set_local_backend_channel(uri: str | None) -> None:
+    global _LOCAL_BACKEND_CHANNEL_URI
+    _LOCAL_BACKEND_CHANNEL_URI = uri
+
+
+def get_local_backend_channel() -> str | None:
+    return _LOCAL_BACKEND_CHANNEL_URI
+
+
+def _channel_replacements(local_uri: str) -> dict[str, str]:
+    normalized = local_uri.rstrip("/")
+    return {
+        REMOTE_BACKEND_CHANNEL: normalized,
+        f"{REMOTE_BACKEND_CHANNEL}/": f"{normalized}/",
+    }
+
+
+def rewrite_backend_channels(root: Path, local_uri: str) -> None:
+    replacements = _channel_replacements(local_uri)
+    for file_path in root.rglob("*"):
+        if not file_path.is_file():
+            continue
+        if file_path.suffix not in _TEXT_FILE_SUFFIXES:
+            continue
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        updated = content
+        for source, target in replacements.items():
+            updated = updated.replace(source, target)
+        if updated != content:
+            file_path.write_text(updated, encoding="utf-8")
+
+
+def copy_manifest(
+    src: str | os.PathLike[str],
+    dst: str | os.PathLike[str],
+    *,
+    follow_symlinks: bool = True,
+) -> str:
+    copied_path = shutil.copy(src, dst, follow_symlinks=follow_symlinks)
+    copied_str = str(copied_path)
+    local_uri = _LOCAL_BACKEND_CHANNEL_URI
+    if local_uri is None:
+        return copied_str
+
+    path = Path(copied_str)
+    if path.suffix not in _TEXT_FILE_SUFFIXES or not path.is_file():
+        return copied_str
+
+    try:
+        content = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return copied_str
+
+    replacements = _channel_replacements(local_uri)
+    updated = content
+    for source, target in replacements.items():
+        updated = updated.replace(source, target)
+
+    if updated != content:
+        path.write_text(updated, encoding="utf-8")
+
+    return copied_str
+
+
+def copytree_with_local_backend(
+    src: str | os.PathLike[str],
+    dst: str | os.PathLike[str],
+    **kwargs: Any,
+) -> str:
+    kwargs.setdefault("copy_function", copy_manifest)
+    copied_tree = shutil.copytree(src, dst, **kwargs)
+    return str(copied_tree)
 
 
 @dataclass
@@ -203,7 +284,7 @@ def git_test_repo(source_dir: Path, repo_name: str, target_dir: Path) -> str:
     repo_path: Path = target_dir / repo_name
 
     # Copy source directory to temp
-    shutil.copytree(source_dir, repo_path, copy_function=shutil.copy)
+    copytree_with_local_backend(source_dir, repo_path, copy_function=copy_manifest)
 
     # Initialize git repository in the copied source
     subprocess.run(
