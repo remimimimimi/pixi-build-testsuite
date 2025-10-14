@@ -19,7 +19,7 @@ ROS_PACKAGE_OUTPUT_NAMES = {
 
 def _prepare_ros_workspace(build_data: Path, tmp_pixi_workspace: Path) -> Path:
     workspace_src = build_data.joinpath(ROS_WORKSPACE_NAME)
-    shutil.rmtree(tmp_pixi_workspace.joinpath(".pixi", "build"), ignore_errors=True)
+    shutil.rmtree(workspace_src.joinpath(".pixi"), ignore_errors=True)
     copytree_with_local_backend(workspace_src, tmp_pixi_workspace, dirs_exist_ok=True)
     return tmp_pixi_workspace
 
