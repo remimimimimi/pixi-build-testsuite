@@ -128,8 +128,7 @@ def test_ros_rebuild_on_source_change(
 
     initial_hash = build_and_get_hash()
 
-    # pprint(metadata)
-    source_file = workspace.joinpath("src", "talker-py", "talker_py", "talker.py")
+    source_file = workspace.joinpath("src", "talker-py", "setup.py")
     source_file.write_text(source_file.read_text() + "\n# trigger rebuild\n")
 
     rebuilt_hash = build_and_get_hash()

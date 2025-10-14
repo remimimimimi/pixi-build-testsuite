@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 import tomli_w
+import tomllib
 import yaml
 from rattler import Platform
 
@@ -92,6 +93,52 @@ def copy_manifest(
     updated = content
     for source, target in replacements.items():
         updated = updated.replace(source, target)
+
+    if path.name == "pixi.toml":
+        try:
+            data = tomllib.loads(updated)
+        except Exception:
+            pass
+        else:
+            changed = False
+
+            package = data.get("package")
+            if isinstance(package, dict):
+                build = package.get("build")
+                if isinstance(build, dict):
+                    backend = build.get("backend")
+                    if isinstance(backend, dict):
+                        channels = backend.get("channels")
+                        local_channel = local_uri.rstrip("/")
+                        original_local = local_uri
+                        default_conda_forge = "https://prefix.dev/conda-forge"
+
+                        current: list[str] = []
+                        if isinstance(channels, list) and all(
+                            isinstance(ch, str) for ch in channels
+                        ):
+                            for ch in channels:
+                                normalized = ch.rstrip("/")
+                                if normalized == REMOTE_BACKEND_CHANNEL.rstrip("/"):
+                                    current.append(local_channel)
+                                else:
+                                    current.append(normalized)
+                        else:
+                            current = []
+
+                        if local_channel in current:
+                            current = [c for c in current if c != local_channel]
+                        current.insert(0, original_local)
+
+                        conda_norm = default_conda_forge.rstrip("/")
+                        if conda_norm not in current:
+                            current.append(default_conda_forge)
+
+                        backend["channels"] = current
+                        changed = True
+
+            if changed:
+                updated = tomli_w.dumps(data)
 
     if updated != content:
         path.write_text(updated, encoding="utf-8")

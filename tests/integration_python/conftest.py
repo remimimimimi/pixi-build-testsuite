@@ -81,7 +81,7 @@ def simple_workspace(
     workspace_manifest = {
         "workspace": {
             "channels": [
-                local_backend_channel_uri or REMOTE_BACKEND_CHANNEL,
+                REMOTE_BACKEND_CHANNEL,
                 "https://prefix.dev/conda-forge",
             ],
             "preview": ["pixi-build"],
@@ -95,7 +95,14 @@ def simple_workspace(
             "name": name,
             "version": "1.0.0",
             "build": {
-                "backend": {"name": "pixi-build-rattler-build", "version": "*"},
+                "backend": {
+                    "name": "pixi-build-rattler-build",
+                    "version": "*",
+                    "channels": [
+                        (local_backend_channel_uri or REMOTE_BACKEND_CHANNEL).rstrip("/"),
+                        "https://prefix.dev/conda-forge",
+                    ],
+                },
                 "configuration": {"debug-dir": str(debug_dir)},
             },
         },
