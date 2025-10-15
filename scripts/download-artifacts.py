@@ -11,6 +11,7 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from pprint import pprint
 
 import httpx
 from dotenv import load_dotenv
@@ -145,6 +146,9 @@ def download_and_extract_artifact(
                 for file_name in file_list
                 if Path(file_name).name.startswith("pixi-build-")
             ]
+
+            print("Legacy executables:")
+            pprint(legacy_executables)
 
             if legacy_executables:
                 console.print("[yellow]Detected legacy backend executables artifact")
