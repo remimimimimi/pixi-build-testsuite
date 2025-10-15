@@ -104,80 +104,6 @@ def build_executables(repo_path: Path) -> None:
         raise PixiBuildError(error_msg)
 
 
-def build_ros_backend(repo_path: Path) -> None:
-    """Build the pixi-build-ros backend located in backends/pixi-build-ros."""
-    ros_backend_dir = repo_path / "backends" / "pixi-build-ros"
-    if not ros_backend_dir.is_dir():
-        print("⚠️ pixi-build-ros backend directory not found, skipping")
-        return
-
-    print(f"🔨 Building pixi-build-ros backend in {ros_backend_dir}")
-    returncode, stdout, stderr = run_command(
-        [
-            "pixi",
-            "install",
-            "--manifest-path",
-            str(ros_backend_dir.joinpath("pixi.toml")),
-        ],
-        cwd=ros_backend_dir,
-    )
-
-    if returncode != 0:
-        error_msg = "Failed to build pixi-build-ros backend"
-        if stderr:
-            error_msg += f": {stderr}"
-        if stdout:
-            error_msg += f" (Output: {stdout})"
-        raise PixiBuildError(error_msg)
-
-    ros_executable = executable_name("pixi-build-ros")
-    source_binary = ros_backend_dir.joinpath(".pixi", "envs", "default", "bin", ros_executable)
-
-    if not source_binary.exists():
-        raise PixiBuildError(
-            f"pixi-build-ros binary not found at '{source_binary}'."
-            " Ensure pixi install completed successfully."
-        )
-
-    target_dir = repo_path / "target" / "pixi" / "release"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target_binary = target_dir / ros_executable
-
-    if target_binary.exists():
-        target_binary.unlink()
-
-    shutil.copy2(source_binary, target_binary)
-    print("✅ Successfully built pixi-build-ros backend")
-
-
-def prepare_legacy_backends(repo_path: Path, project_root: Path) -> None:
-    """Fallback path that copies built backend executables into the artifacts directory."""
-    target_release = repo_path / "target" / "pixi" / "release"
-    if not target_release.is_dir():
-        raise PixiChannelError(
-            f"Legacy fallback failed: {target_release} does not exist. "
-            "Ensure 'pixi run build-release' completed successfully."
-        )
-
-    destination = project_root / "artifacts" / "pixi-build-backends"
-    if destination.exists():
-        shutil.rmtree(destination)
-    destination.mkdir(parents=True, exist_ok=True)
-
-    backend_files = list(target_release.glob("pixi-build-*"))
-    if not backend_files:
-        raise PixiChannelError(
-            "Legacy fallback failed: No pixi-build-* executables found in "
-            f"{target_release}. Verify the build completed successfully."
-        )
-
-    for backend_file in backend_files:
-        if backend_file.is_file():
-            shutil.copy2(backend_file, destination.joinpath(backend_file.name))
-
-    print(f"✅ Backends copied to {destination} (legacy layout)")
-
-
 def create_testsuite_channel(repo_path: Path, project_root: Path) -> None:
     """Create the local testsuite channel and move it into this repository."""
     channel_source = repo_path / "artifacts-channel"
@@ -191,16 +117,8 @@ def create_testsuite_channel(repo_path: Path, project_root: Path) -> None:
     returncode, stdout, stderr = run_command(
         ["pixi", "run", "create-testsuite-channel"], cwd=repo_path
     )
-    combined_output = "\n".join(part for part in [stdout, stderr] if part)
 
     if returncode != 0:
-        if "Available tasks" in combined_output:
-            print(
-                "ℹ️  'create-testsuite-channel' task not available; falling back to legacy backend layout"
-            )
-            prepare_legacy_backends(repo_path, project_root)
-            return
-
         error_msg = "Failed to create testsuite channel"
         if stderr:
             error_msg += f": {stderr}"
@@ -247,9 +165,6 @@ def process_repository(repo_path: Path, repo_name: str) -> None:
     else:
         print("⚠️  Could not determine current branch")
 
-    # Run pixi build
-    build_executables(repo_path)
-
 
 def main() -> None:
     """Main function to process repositories."""
@@ -286,13 +201,13 @@ def main() -> None:
 
     try:
         process_repository(pixi_repo_path, "PIXI_REPO")
+        build_executables(pixi_repo_path)
     except Exception as e:
         print(f"❌ Error processing PIXI_REPO: {e}")
         success = False
 
     try:
         process_repository(build_backends_repo_path, "BUILD_BACKENDS_REPO")
-        build_ros_backend(build_backends_repo_path)
         create_testsuite_channel(build_backends_repo_path, project_root)
     except Exception as e:
         print(f"❌ Error processing BUILD_BACKENDS_REPO: {e}")
