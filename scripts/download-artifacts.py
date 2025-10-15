@@ -145,6 +145,7 @@ def download_and_extract_artifact(
                 file_name
                 for file_name in file_list
                 if Path(file_name).name.startswith("pixi-build-")
+                and not Path(file_name).name.endswith("conda")
             ]
 
             print("Legacy executables:")
