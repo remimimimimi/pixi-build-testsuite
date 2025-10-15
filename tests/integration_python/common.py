@@ -42,32 +42,6 @@ def get_local_backend_channel() -> str | None:
     return _LOCAL_BACKEND_CHANNEL_URI
 
 
-def _channel_replacements(local_uri: str) -> dict[str, str]:
-    normalized = local_uri.rstrip("/")
-    return {
-        REMOTE_BACKEND_CHANNEL: normalized,
-        f"{REMOTE_BACKEND_CHANNEL}/": f"{normalized}/",
-    }
-
-
-def rewrite_backend_channels(root: Path, local_uri: str) -> None:
-    replacements = _channel_replacements(local_uri)
-    for file_path in root.rglob("*"):
-        if not file_path.is_file():
-            continue
-        if file_path.suffix not in _TEXT_FILE_SUFFIXES:
-            continue
-        try:
-            content = file_path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue
-        updated = content
-        for source, target in replacements.items():
-            updated = updated.replace(source, target)
-        if updated != content:
-            file_path.write_text(updated, encoding="utf-8")
-
-
 def copy_manifest(
     src: str | os.PathLike[str],
     dst: str | os.PathLike[str],
@@ -89,10 +63,7 @@ def copy_manifest(
     except UnicodeDecodeError:
         return copied_str
 
-    replacements = _channel_replacements(local_uri)
     updated = content
-    for source, target in replacements.items():
-        updated = updated.replace(source, target)
 
     if path.name == "pixi.toml":
         try:
