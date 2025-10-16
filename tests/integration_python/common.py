@@ -28,18 +28,23 @@ channels = []
 platforms = ["{CURRENT_PLATFORM}"]
 """
 
-REMOTE_BACKEND_CHANNEL = "https://prefix.dev/pixi-build-backends"
-_TEXT_FILE_SUFFIXES = {".toml", ".lock", ".yaml", ".yml", ".json"}
-_LOCAL_BACKEND_CHANNEL_URI: str | None = None
-
-
-def set_local_backend_channel(uri: str | None) -> None:
-    global _LOCAL_BACKEND_CHANNEL_URI
-    _LOCAL_BACKEND_CHANNEL_URI = uri
-
 
 def get_local_backend_channel() -> str | None:
-    return _LOCAL_BACKEND_CHANNEL_URI
+    env_override = os.environ.get("PIXI_TESTSUITE_BACKEND_CHANNEL")
+    if env_override:
+        return env_override
+
+    env_repo = os.environ.get("BUILD_BACKENDS_REPO")
+    if env_repo:
+        repo_path = Path(env_repo).expanduser().joinpath("artifacts-channel")
+        if repo_path.is_dir() and any(repo_path.rglob("repodata.json")):
+            return repo_path.as_uri()
+
+    channel_dir = repo_root().joinpath("artifacts", "pixi-build-backends")
+    if channel_dir.is_dir() and any(channel_dir.rglob("repodata.json")):
+        return channel_dir.as_uri()
+
+    return None
 
 
 def copy_manifest(
@@ -50,12 +55,12 @@ def copy_manifest(
 ) -> str:
     copied_path = shutil.copy(src, dst, follow_symlinks=follow_symlinks)
     copied_str = str(copied_path)
-    local_uri = _LOCAL_BACKEND_CHANNEL_URI
+    local_uri = get_local_backend_channel()
     if local_uri is None:
         return copied_str
 
     path = Path(copied_str)
-    if path.suffix not in _TEXT_FILE_SUFFIXES or not path.is_file():
+    if path.suffix != ".toml" or not path.is_file():
         return copied_str
 
     try:
@@ -80,33 +85,21 @@ def copy_manifest(
                     backend = build.get("backend")
                     if isinstance(backend, dict):
                         channels = backend.get("channels")
-                        local_channel = local_uri.rstrip("/")
-                        original_local = local_uri
-                        default_conda_forge = "https://prefix.dev/conda-forge"
-
-                        current: list[str] = []
-                        if isinstance(channels, list) and all(
-                            isinstance(ch, str) for ch in channels
-                        ):
-                            for ch in channels:
-                                normalized = ch.rstrip("/")
-                                if normalized == REMOTE_BACKEND_CHANNEL.rstrip("/"):
-                                    current.append(local_channel)
-                                else:
-                                    current.append(normalized)
+                        new_channels: list[str] = []
+                        if not channels:
+                            new_channels = [local_uri, "https://prefix.dev/conda-forge"]
                         else:
-                            current = []
+                            for channel in channels:
+                                if "pixi-build-backends" in channel:
+                                    new_channels.append(local_uri)
+                                else:
+                                    new_channels.append(channel)
+                            # Handle case where channels is not defined
+                            if local_uri not in new_channels:
+                                new_channels.append(local_uri)
 
-                        if local_channel in current:
-                            current = [c for c in current if c != local_channel]
-                        current.insert(0, original_local)
-
-                        conda_norm = default_conda_forge.rstrip("/")
-                        if conda_norm not in current:
-                            current.append(default_conda_forge)
-
-                        backend["channels"] = current
-                        changed = True
+                        backend["channels"] = new_channels
+                        changed = new_channels != channels
 
             if changed:
                 updated = tomli_w.dumps(data)

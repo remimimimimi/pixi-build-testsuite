@@ -1,12 +1,14 @@
-import rclpy
-from rclpy.node import Node
-from geometry_msgs.msg import Point, Twist
-from turtlesim.msg import Pose
 import math
+from typing import Any
+
+import rclpy  # type: ignore[import-not-found]
+from geometry_msgs.msg import Point, Twist  # type: ignore[import-not-found]
+from rclpy.node import Node  # type: ignore[import-not-found]
+from turtlesim.msg import Pose  # type: ignore[import-not-found]
 
 
-class TurtleNavigator(Node):
-    def __init__(self):
+class TurtleNavigator(Node):  # type: ignore[misc]
+    def __init__(self) -> None:
         super().__init__(node_name="turtle_navigator")
         self.x_goal = 5.0
         self.y_goal = 5.0
@@ -28,17 +30,17 @@ class TurtleNavigator(Node):
         self.y_current = 0.0
         self.theta_current = 0.0
 
-    def goal_callback(self, msg):
+    def goal_callback(self, msg: Any) -> None:
         self.x_goal = msg.x
         self.y_goal = msg.y
         self.get_logger().info(f"Received goal: x={self.x_goal}, y={self.y_goal}")
 
-    def pose_callback(self, msg):
+    def pose_callback(self, msg: Any) -> None:
         self.x_current = msg.x
         self.y_current = msg.y
         self.theta_current = msg.theta
 
-    def control_loop(self):
+    def control_loop(self) -> None:
         error_x = self.x_goal - self.x_current
         error_y = self.y_goal - self.y_current
         distance_error = math.sqrt(error_x**2 + error_y**2)
@@ -75,7 +77,7 @@ class TurtleNavigator(Node):
         self.publisher.publish(msg)
 
 
-def main(args=None):
+def main(args: Any = None) -> None:
     rclpy.init(args=args)
     print("Turtle Navigator")
     turtle_navigator = TurtleNavigator()
