@@ -28,9 +28,7 @@ channels = []
 platforms = ["{CURRENT_PLATFORM}"]
 """
 
-REMOTE_BACKEND_CHANNEL = "https://prefix.dev/pixi-build-backends"
 CONDA_FORGE = "https://prefix.dev/conda-forge"
-CHANNEL_FILE_SUFFIXES = {".toml", ".lock", ".yaml", ".yml", ".json"}
 
 
 def get_local_backend_channel() -> str | None:
@@ -64,7 +62,7 @@ def copy_manifest(
         return copied_str
 
     path = Path(copied_str)
-    if path.suffix not in CHANNEL_FILE_SUFFIXES or not path.is_file():
+    if path.suffix != ".toml" or not path.is_file():
         return copied_str
 
     try:
@@ -72,18 +70,7 @@ def copy_manifest(
     except UnicodeDecodeError:
         return copied_str
 
-    def _replace_backend_channel(text: str) -> str:
-        normalized_local = local_uri.rstrip("/")
-        replacements = {
-            REMOTE_BACKEND_CHANNEL: normalized_local,
-            f"{REMOTE_BACKEND_CHANNEL}/": f"{normalized_local}/",
-        }
-        updated_text = text
-        for search, replacement in replacements.items():
-            updated_text = updated_text.replace(search, replacement)
-        return updated_text
-
-    updated = _replace_backend_channel(content)
+    updated = content
 
     if path.name == "pixi.toml":
         try:
@@ -128,8 +115,6 @@ def copy_manifest(
 
             if changed:
                 updated = tomli_w.dumps(data)
-            else:
-                updated = _replace_backend_channel(content)
 
     if updated != content:
         path.write_text(updated, encoding="utf-8")
