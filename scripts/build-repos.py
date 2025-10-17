@@ -104,19 +104,16 @@ def build_executables(repo_path: Path) -> None:
         raise PixiBuildError(error_msg)
 
 
-def create_testsuite_channel(repo_path: Path, project_root: Path) -> None:
+def create_channel(repo_path: Path, project_root: Path) -> None:
     """Create the local testsuite channel and move it into this repository."""
     channel_source = repo_path / "artifacts-channel"
-    channel_target = project_root / "artifacts" / "pixi-build-backends"
 
     if channel_source.exists():
         print("🧹 Removing existing channel directory before rebuilding")
         shutil.rmtree(channel_source)
 
-    print("📦 Creating testsuite channel")
-    returncode, stdout, stderr = run_command(
-        ["pixi", "run", "create-testsuite-channel"], cwd=repo_path
-    )
+    print("📦 Creating channel")
+    returncode, stdout, stderr = run_command(["pixi", "run", "create-channel"], cwd=repo_path)
 
     if returncode != 0:
         error_msg = "Failed to create testsuite channel"
@@ -129,17 +126,10 @@ def create_testsuite_channel(repo_path: Path, project_root: Path) -> None:
     if not channel_source.exists():
         raise PixiChannelError(
             f"Expected channel directory '{channel_source}' was not created. "
-            "Verify that 'pixi run create-testsuite-channel' completed successfully."
+            "Verify that 'pixi run create-channel' completed successfully."
         )
 
-    if channel_target.exists():
-        print(f"🧹 Removing existing channel at {channel_target}")
-        shutil.rmtree(channel_target)
-
-    channel_target.parent.mkdir(parents=True, exist_ok=True)
-    print(f"🚚 Moving channel from {channel_source} to {channel_target}")
-    shutil.move(str(channel_source), channel_target)
-    print("✅ Testsuite channel ready")
+    print("✅ Testsuite channel ready at source repo")
 
 
 def process_repository(repo_path: Path, repo_name: str) -> None:
@@ -208,7 +198,7 @@ def main() -> None:
 
     try:
         process_repository(build_backends_repo_path, "BUILD_BACKENDS_REPO")
-        create_testsuite_channel(build_backends_repo_path, project_root)
+        create_channel(build_backends_repo_path, project_root)
     except Exception as e:
         print(f"❌ Error processing BUILD_BACKENDS_REPO: {e}")
         success = False

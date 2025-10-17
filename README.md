@@ -25,10 +25,9 @@ If you prefer to use local checkouts, create a `.env` file with the paths to you
 
 ```shell
 PIXI_REPO="/path/to/pixi-repository"
-BUILD_BACKENDS_REPO="/path/to/pixi-build-backends-repository"
-
 PIXI_BIN_DIR="${PIXI_REPO}/target/pixi/release"
-BUILD_BACKENDS_BIN_DIR="${BUILD_BACKENDS_REPO}/target/pixi/release"
+
+BUILD_BACKENDS_REPO="/path/to/pixi-build-backends-repository"
 ```
 
 Then build the binaries with:

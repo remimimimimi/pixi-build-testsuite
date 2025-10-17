@@ -1,16 +1,18 @@
 import sys
-import rclpy
-from rclpy.node import Node
-from geometry_msgs.msg import Point
 import argparse
+from typing import Any
+
+import rclpy  # type: ignore[import-not-found]
+from geometry_msgs.msg import Point  # type: ignore[import-not-found]
+from rclpy.node import Node  # type: ignore[import-not-found]
 
 
-class CoordinatePublisher(Node):
-    def __init__(self):
+class CoordinatePublisher(Node):  # type: ignore[misc]
+    def __init__(self) -> None:
         super().__init__(node_name="coordinate_publisher")
         self.publisher_ = self.create_publisher(Point, "coordinates", 10)
 
-    def publish_coordinates(self, x, y):
+    def publish_coordinates(self, x: float, y: float) -> None:
         msg = Point()
         msg.x = x
         msg.y = y
@@ -19,7 +21,7 @@ class CoordinatePublisher(Node):
         self.get_logger().info(f"Publishing: x={x}, y={y}")
 
 
-def main(args=None):
+def main(args: Any = None) -> None:
     rclpy.init(args=args)
     node = CoordinatePublisher()
 
