@@ -8,6 +8,7 @@ import dotenv
 import pytest
 
 from urllib.parse import urlparse, unquote
+from urllib.request import url2pathname
 
 from .common import (
     CURRENT_PLATFORM,
@@ -33,7 +34,20 @@ def local_backend_channel_dir() -> Path:
             "PIXI_TESTSUITE_BACKEND_CHANNEL to point to a local channel."
         )
 
-    channel_dir = Path(unquote(parsed.path))
+    path_str = url2pathname(parsed.path)
+    if (
+        len(path_str) >= 3
+        and path_str[0] in {"/", "\\"}
+        and path_str[1].isalpha()
+        and path_str[2] == ":"
+    ):
+        # Drop leading slash that urlparse adds before the drive letter on Windows file URIs.
+        path_str = path_str[1:]
+    if parsed.netloc:
+        # Preserve UNC host if present.
+        path_str = f"//{parsed.netloc}{path_str}"
+
+    channel_dir = Path(unquote(path_str))
     if not channel_dir.is_dir() or not any(channel_dir.rglob("repodata.json")):
         raise RuntimeError(
             f"Local backend channel at '{channel_dir}' is missing repodata.json. "
