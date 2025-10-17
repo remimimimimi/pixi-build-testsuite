@@ -7,37 +7,32 @@ from typing import Any, cast
 import dotenv
 import pytest
 
-from urllib.parse import urlparse, unquote
-
 from .common import (
     CURRENT_PLATFORM,
+    REMOTE_BACKEND_CHANNEL,
     Workspace,
     exec_extension,
-    get_local_backend_channel,
     repo_root,
+    set_local_backend_channel,
 )
+
+
+def _local_backend_channel_dir() -> Path | None:
+    channel_dir = repo_root().joinpath("artifacts", "pixi-build-backends")
+    if not channel_dir.is_dir():
+        return None
+    if any(channel_dir.rglob("repodata.json")):
+        return channel_dir
+    return None
 
 
 @pytest.fixture(scope="session")
 def local_backend_channel_dir() -> Path:
-    channel_uri = get_local_backend_channel()
-    if channel_uri is None:
+    channel_dir = _local_backend_channel_dir()
+    if channel_dir is None:
         raise RuntimeError(
             "Local pixi-build-backends channel not found. Run 'pixi run build-repos' "
             "or 'pixi run download-artifacts --repo pixi-build-backends' before running tests."
-        )
-    parsed = urlparse(channel_uri)
-    if parsed.scheme != "file":
-        raise RuntimeError(
-            f"Local backend channel must be a file URI, got '{channel_uri}'. Update BUILD_BACKENDS_REPO or "
-            "PIXI_TESTSUITE_BACKEND_CHANNEL to point to a local channel."
-        )
-
-    channel_dir = Path(unquote(parsed.path))
-    if not channel_dir.is_dir() or not any(channel_dir.rglob("repodata.json")):
-        raise RuntimeError(
-            f"Local backend channel at '{channel_dir}' is missing repodata.json. "
-            "Recreate it with 'pixi run build-repos' or re-download the artifacts."
         )
     return channel_dir
 
@@ -45,6 +40,11 @@ def local_backend_channel_dir() -> Path:
 @pytest.fixture(scope="session")
 def local_backend_channel_uri(local_backend_channel_dir: Path) -> str:
     return local_backend_channel_dir.as_uri()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_backend_channel(local_backend_channel_uri: str) -> None:
+    set_local_backend_channel(local_backend_channel_uri)
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ def simple_workspace(
     workspace_manifest = {
         "workspace": {
             "channels": [
-                local_backend_channel_uri,
+                REMOTE_BACKEND_CHANNEL,
                 "https://prefix.dev/conda-forge",
             ],
             "preview": ["pixi-build"],
@@ -103,7 +103,7 @@ def simple_workspace(
                     "name": "pixi-build-rattler-build",
                     "version": "*",
                     "channels": [
-                        local_backend_channel_uri,
+                        (local_backend_channel_uri or REMOTE_BACKEND_CHANNEL).rstrip("/"),
                         "https://prefix.dev/conda-forge",
                     ],
                 },
@@ -292,6 +292,7 @@ def build_backends(
             "BUILD_BACKENDS_BIN_DIR is no longer supported. Remove it to rely on the packaged channel."
         )
 
+    os.environ.pop("BUILD_BACKENDS_BIN_DIR", None)
     os.environ.pop("PIXI_BUILD_BACKEND_OVERRIDE", None)
 
 

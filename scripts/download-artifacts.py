@@ -139,27 +139,44 @@ def download_and_extract_artifact(
             console.print(f"[green]Successfully downloaded pixi binary to: {final_path}")
 
         elif repo == "prefix-dev/pixi-build-backends":
-            # Find the pixi binary
-            some_repodata_file = None
-            for file_name in file_list:
-                if file_name.endswith("repodata.json"):
-                    some_repodata_file = True
-                    break
-
-            if not some_repodata_file:
-                console.print("[red]Could not locate a channel directory inside the artifact.")
-                raise FileNotFoundError("Could not locate a channel directory inside the artifact.")
-
             console.print("[blue]Detected backend channel artifact")
-            final_channel_path = output_dir / "pixi-build-backends"
-            if final_channel_path.exists():
-                console.print(f"[yellow]Removing existing channel at {final_channel_path}")
-                shutil.rmtree(final_channel_path)
+            temp_dir = Path(tempfile.mkdtemp(prefix="pixi-backends-"))
+            try:
+                zip_ref.extractall(temp_dir)
 
-            final_channel_path.parent.mkdir(parents=True, exist_ok=True)
-            zip_ref.extractall(final_channel_path)
+                nested_zips = list(temp_dir.rglob("*.zip"))
+                for nested_zip in nested_zips:
+                    console.print(f"[blue]Unpacking nested archive: {nested_zip.name}")
+                    with zipfile.ZipFile(nested_zip, "r") as nested_zip_ref:
+                        nested_zip_ref.extractall(nested_zip.parent)
+                    nested_zip.unlink()
 
-            console.print(f"[green]Channel is ready at: {final_channel_path}")
+                repodata_files = sorted(
+                    list(temp_dir.rglob("repodata.json"))
+                    + list(temp_dir.rglob("repodata.json.zst"))
+                )
+
+                if not repodata_files:
+                    raise FileNotFoundError(
+                        "Could not locate a channel directory inside the artifact. "
+                        f"Archive contents: {file_list}"
+                    )
+
+                channel_dir = repodata_files[0].parent.parent
+
+                final_channel_path = output_dir / "pixi-build-backends"
+                if final_channel_path.exists():
+                    console.print(f"[yellow]Removing existing channel at {final_channel_path}")
+                    shutil.rmtree(final_channel_path)
+
+                final_channel_path.parent.mkdir(parents=True, exist_ok=True)
+                console.print(f"[blue]Moving channel to {final_channel_path}")
+                shutil.move(str(channel_dir), final_channel_path)
+
+                console.print(f"[green]Channel ready at: {final_channel_path}")
+            finally:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
         else:
             raise ValueError(f"Unsupported repository: {repo}")
 
