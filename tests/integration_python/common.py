@@ -28,6 +28,8 @@ channels = []
 platforms = ["{CURRENT_PLATFORM}"]
 """
 
+CONDA_FORGE = "https://prefix.dev/conda-forge"
+
 
 def get_local_backend_channel() -> str | None:
     env_override = os.environ.get("PIXI_TESTSUITE_BACKEND_CHANNEL")
@@ -85,21 +87,31 @@ def copy_manifest(
                     backend = build.get("backend")
                     if isinstance(backend, dict):
                         channels = backend.get("channels")
-                        new_channels: list[str] = []
-                        if not channels:
-                            new_channels = [local_uri, "https://prefix.dev/conda-forge"]
-                        else:
-                            for channel in channels:
-                                if "pixi-build-backends" in channel:
-                                    new_channels.append(local_uri)
-                                else:
-                                    new_channels.append(channel)
-                            # Handle case where channels is not defined
-                            if local_uri not in new_channels:
-                                new_channels.append(local_uri)
+                        raw_channels = [ch for ch in (channels or []) if isinstance(ch, str)]
 
+                        def _norm(url: str) -> str:
+                            return url.rstrip("/")
+
+                        normalized_local = _norm(local_uri)
+                        normalized_conda = _norm(CONDA_FORGE)
+
+                        new_channels: list[str] = [local_uri]
+                        seen = {normalized_local}
+
+                        for channel in raw_channels:
+                            normalized = _norm(channel)
+                            if "pixi-build-backends" in normalized:
+                                continue
+                            if normalized in seen:
+                                continue
+                            new_channels.append(channel)
+                            seen.add(normalized)
+
+                        if normalized_conda not in seen:
+                            new_channels.append(CONDA_FORGE)
+
+                        changed = new_channels != raw_channels
                         backend["channels"] = new_channels
-                        changed = new_channels != channels
 
             if changed:
                 updated = tomli_w.dumps(data)
