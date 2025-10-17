@@ -281,6 +281,7 @@ def download_github_artifact(
     # Get the target_artifact
     target_artifact = None
     pr = None
+    selected_run = None
 
     if run_id:
         # Use specific run ID - no need to find workflow first
@@ -339,6 +340,9 @@ def download_github_artifact(
             target_artifact = get_matching_artifact(artifacts, artifact_name_pattern)
             if target_artifact:
                 break
+
+    if selected_run is None:
+        raise ValueError("Could not find a suitable workflow run")
 
     console.print(f"[blue]Selected run: {selected_run.id} from {selected_run.created_at}")
 
