@@ -1,8 +1,8 @@
 import os
 import platform
+import re
 import shutil
 import subprocess
-import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import IntEnum
@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 import tomli_w
+import tomllib
 import yaml
 from rattler import Platform
 
@@ -26,6 +27,84 @@ name = "test"
 channels = []
 platforms = ["{CURRENT_PLATFORM}"]
 """
+
+
+def get_local_backend_channel() -> str:
+    env_repo = os.environ.get("BUILD_BACKENDS_REPO")
+    if env_repo:
+        repo_path = Path(env_repo).expanduser().joinpath("artifacts-channel")
+        if repo_path.is_dir() and any(repo_path.rglob("repodata.json")):
+            return repo_path.as_uri()
+
+    channel_dir = repo_root().joinpath("artifacts", "pixi-build-backends")
+    if channel_dir.is_dir() and any(channel_dir.rglob("repodata.json")):
+        return channel_dir.as_uri()
+
+    raise Exception("No BUILD_BACKENDS_REPO defined, can't find artifacts-channel dir")
+
+
+def copy_manifest(
+    src: os.PathLike[str],
+    dst: os.PathLike[str],
+) -> Path:
+    """
+    Copy file with special handling for pixi manifest.
+
+    It will override backends channel with local backends channel.
+    """
+    copied_path = Path(shutil.copy(src, dst))
+    local_uri = get_local_backend_channel()
+
+    if copied_path.suffix != ".toml":
+        return copied_path
+
+    content = copied_path.read_text(encoding="utf-8")
+
+    changed = False
+    if copied_path.name == "pixi.toml":
+        data = tomllib.loads(content)
+
+        package = data.get("package")
+        if isinstance(package, dict):
+            build = package.get("build")
+            if isinstance(build, dict):
+                backend = build.get("backend")
+                if isinstance(backend, dict):
+                    channels = backend.get("channels")
+                    new_channels: list[str] = []
+                    if not channels:
+                        new_channels = [local_uri, "https://prefix.dev/conda-forge"]
+                    else:
+                        for channel in channels:
+                            if "pixi-build-backends" in channel:
+                                new_channels.append(local_uri)
+                            else:
+                                new_channels.append(channel)
+                        # Handle case where channels is not defined
+                        if local_uri not in new_channels:
+                            new_channels.append(local_uri)
+
+                    backend["channels"] = new_channels
+                    changed = new_channels != channels
+        if changed:
+            content = tomli_w.dumps(data)
+
+    if changed:
+        copied_path.write_text(content, encoding="utf-8")
+
+    return copied_path
+
+
+def copytree_with_local_backend(
+    src: os.PathLike[str],
+    dst: os.PathLike[str],
+    **kwargs: Any,
+) -> Path:
+    # Remove existing .pixi folders
+    shutil.rmtree(Path(src).joinpath(".pixi"), ignore_errors=True)
+
+    kwargs.setdefault("copy_function", copy_manifest)
+    return Path(shutil.copytree(src, dst, **kwargs))
 
 
 @dataclass
@@ -203,7 +282,7 @@ def git_test_repo(source_dir: Path, repo_name: str, target_dir: Path) -> str:
     repo_path: Path = target_dir / repo_name
 
     # Copy source directory to temp
-    shutil.copytree(source_dir, repo_path, copy_function=shutil.copy)
+    copytree_with_local_backend(source_dir, repo_path, copy_function=copy_manifest)
 
     # Initialize git repository in the copied source
     subprocess.run(

@@ -1,11 +1,17 @@
-import shutil
 from pathlib import Path
 
 import pytest
 import tomli_w
 import tomllib
 
-from .common import ExitCode, exec_extension, git_test_repo, verify_cli_command
+from .common import (
+    ExitCode,
+    copy_manifest,
+    copytree_with_local_backend,
+    exec_extension,
+    git_test_repo,
+    verify_cli_command,
+)
 
 
 @pytest.mark.parametrize(
@@ -181,10 +187,12 @@ def test_update(pixi: Path, tmp_path: Path, build_data: Path) -> None:
     # Create a modifiable copy of simple-package
     source_project = tmp_path / "simple-package-copy"
 
-    # by using shutil.copy, we change the metadata and therefore get a higher timestamp
+    # by using copy_manifest we change the metadata and therefore get a higher timestamp
     # that way we make sure that we don't use old caches
-    shutil.copytree(
-        build_data.joinpath("simple-package"), source_project, copy_function=shutil.copy
+    copytree_with_local_backend(
+        build_data.joinpath("simple-package"),
+        source_project,
+        copy_function=copy_manifest,
     )
 
     # Install the package from the path

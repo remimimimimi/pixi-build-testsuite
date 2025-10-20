@@ -1,9 +1,9 @@
-import shutil
-from pathlib import Path
 import platform
+from pathlib import Path
+
 import pytest
 
-from .common import ExitCode, get_manifest, verify_cli_command
+from .common import ExitCode, copytree_with_local_backend, get_manifest, verify_cli_command
 
 
 @pytest.mark.slow
@@ -15,11 +15,8 @@ def test_pixi_build_cmake_env_config_without_target(
     # Copy the cmake env config test workspace
     cmake_env_test_project = test_data.joinpath("pixi_build", "env-config-cmake-test")
 
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_env_test_project.joinpath(".pixi"), ignore_errors=True)
-
     # Copy to workspace
-    shutil.copytree(cmake_env_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(cmake_env_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
 
     # Get manifest
     manifest = get_manifest(tmp_pixi_workspace)
@@ -44,11 +41,10 @@ def test_pixi_build_cmake_env_config_with_target(
     # Copy the target cmake env config test workspace
     cmake_target_env_test_project = test_data.joinpath("pixi_build", "env-config-target-cmake-test")
 
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_target_env_test_project.joinpath(".pixi"), ignore_errors=True)
-
     # Copy to workspace
-    shutil.copytree(cmake_target_env_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(
+        cmake_target_env_test_project, tmp_pixi_workspace, dirs_exist_ok=True
+    )
 
     # Get manifest
     manifest = get_manifest(tmp_pixi_workspace)
@@ -87,11 +83,8 @@ def test_pixi_build_cmake_invalid_config_rejection(
     # Copy the invalid config test workspace
     cmake_invalid_test_project = test_data.joinpath("pixi_build", "env-config-invalid-test")
 
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_invalid_test_project.joinpath(".pixi"), ignore_errors=True)
-
     # Copy to workspace
-    shutil.copytree(cmake_invalid_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(cmake_invalid_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
 
     # Get manifest
     manifest = get_manifest(tmp_pixi_workspace)
@@ -118,11 +111,10 @@ def test_pixi_build_cmake_invalid_target_config_rejection(
         "pixi_build", "env-config-target-invalid-test"
     )
 
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_target_invalid_test_project.joinpath(".pixi"), ignore_errors=True)
-
     # Copy to workspace
-    shutil.copytree(cmake_target_invalid_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(
+        cmake_target_invalid_test_project, tmp_pixi_workspace, dirs_exist_ok=True
+    )
 
     # Get manifest
     manifest = get_manifest(tmp_pixi_workspace)

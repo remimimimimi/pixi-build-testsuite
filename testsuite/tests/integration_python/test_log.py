@@ -1,13 +1,12 @@
-import shutil
 from pathlib import Path
 
-from .common import ExitCode, verify_cli_command
+from .common import ExitCode, copytree_with_local_backend, verify_cli_command
 
 
 def test_log_working_quiet(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     test_data = build_data.joinpath("log-example", "working")
 
-    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
 
     verify_cli_command(
         [
@@ -24,7 +23,7 @@ def test_log_working_quiet(pixi: Path, build_data: Path, tmp_pixi_workspace: Pat
 def test_log_working_default(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     test_data = build_data.joinpath("log-example", "working")
 
-    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
 
     verify_cli_command(
         [
@@ -40,7 +39,7 @@ def test_log_working_default(pixi: Path, build_data: Path, tmp_pixi_workspace: P
 def test_log_failing(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     test_data = build_data.joinpath("log-example", "failing")
 
-    shutil.copytree(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_data, tmp_pixi_workspace, dirs_exist_ok=True)
 
     verify_cli_command(
         [
