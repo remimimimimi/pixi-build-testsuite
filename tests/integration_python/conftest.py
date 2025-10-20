@@ -30,8 +30,8 @@ def local_backend_channel_dir() -> Path:
     parsed = urlparse(channel_uri)
     if parsed.scheme != "file":
         raise RuntimeError(
-            f"Local backend channel must be a file URI, got '{channel_uri}'. Update BUILD_BACKENDS_REPO or "
-            "PIXI_TESTSUITE_BACKEND_CHANNEL to point to a local channel."
+            f"Local backend channel must be a file URI, got '{channel_uri}'. "
+            "Update BUILD_BACKENDS_REPO to point to a local channel."
         )
 
     path_str = url2pathname(parsed.path)
@@ -288,11 +288,6 @@ def build_backends(
 
     We prefer installing backends from the local channel.
     """
-    if local_backend_channel_uri:
-        os.environ["PIXI_TESTSUITE_BACKEND_CHANNEL"] = local_backend_channel_uri
-    else:
-        os.environ.pop("PIXI_TESTSUITE_BACKEND_CHANNEL", None)
-
     if local_backend_channel_dir is not None and not any(
         local_backend_channel_dir.rglob("repodata.json")
     ):

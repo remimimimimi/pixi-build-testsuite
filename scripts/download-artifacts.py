@@ -140,13 +140,13 @@ def download_and_extract_artifact(
 
         elif repo == "prefix-dev/pixi-build-backends":
             # Find the pixi binary
-            some_repodata_file = None
+            is_channel = None
             for file_name in file_list:
                 if file_name.endswith("repodata.json"):
-                    some_repodata_file = True
+                    is_channel = True
                     break
 
-            if not some_repodata_file:
+            if not is_channel:
                 console.print("[red]Could not locate a channel directory inside the artifact.")
                 raise FileNotFoundError("Could not locate a channel directory inside the artifact.")
 

@@ -29,11 +29,7 @@ platforms = ["{CURRENT_PLATFORM}"]
 """
 
 
-def get_local_backend_channel() -> str | None:
-    env_override = os.environ.get("PIXI_TESTSUITE_BACKEND_CHANNEL")
-    if env_override:
-        return env_override
-
+def get_local_backend_channel() -> str:
     env_repo = os.environ.get("BUILD_BACKENDS_REPO")
     if env_repo:
         repo_path = Path(env_repo).expanduser().joinpath("artifacts-channel")
@@ -44,80 +40,71 @@ def get_local_backend_channel() -> str | None:
     if channel_dir.is_dir() and any(channel_dir.rglob("repodata.json")):
         return channel_dir.as_uri()
 
-    return None
+    raise Exception("No BUILD_BACKENDS_REPO defined, can't find artifacts-channel dir")
 
 
 def copy_manifest(
-    src: str | os.PathLike[str],
-    dst: str | os.PathLike[str],
-    *,
-    follow_symlinks: bool = True,
-) -> str:
-    copied_path = shutil.copy(src, dst, follow_symlinks=follow_symlinks)
-    copied_str = str(copied_path)
+    src: os.PathLike[str],
+    dst: os.PathLike[str],
+) -> Path:
+    """
+    Copy file with special handling for pixi manifest.
+
+    It will override backends channel with local backends channel.
+    """
+    copied_path = Path(shutil.copy(src, dst))
     local_uri = get_local_backend_channel()
-    if local_uri is None:
-        return copied_str
 
-    path = Path(copied_str)
-    if path.suffix != ".toml" or not path.is_file():
-        return copied_str
+    if copied_path.suffix != ".toml":
+        return copied_path
 
-    try:
-        content = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        return copied_str
+    content = copied_path.read_text(encoding="utf-8")
 
-    updated = content
+    changed = False
+    if copied_path.name == "pixi.toml":
+        data = tomllib.loads(content)
 
-    if path.name == "pixi.toml":
-        try:
-            data = tomllib.loads(updated)
-        except Exception:
-            pass
-        else:
-            changed = False
-
-            package = data.get("package")
-            if isinstance(package, dict):
-                build = package.get("build")
-                if isinstance(build, dict):
-                    backend = build.get("backend")
-                    if isinstance(backend, dict):
-                        channels = backend.get("channels")
-                        new_channels: list[str] = []
-                        if not channels:
-                            new_channels = [local_uri, "https://prefix.dev/conda-forge"]
-                        else:
-                            for channel in channels:
-                                if "pixi-build-backends" in channel:
-                                    new_channels.append(local_uri)
-                                else:
-                                    new_channels.append(channel)
-                            # Handle case where channels is not defined
-                            if local_uri not in new_channels:
+        package = data.get("package")
+        if isinstance(package, dict):
+            build = package.get("build")
+            if isinstance(build, dict):
+                backend = build.get("backend")
+                if isinstance(backend, dict):
+                    channels = backend.get("channels")
+                    new_channels: list[str] = []
+                    if not channels:
+                        new_channels = [local_uri, "https://prefix.dev/conda-forge"]
+                    else:
+                        for channel in channels:
+                            if "pixi-build-backends" in channel:
                                 new_channels.append(local_uri)
+                            else:
+                                new_channels.append(channel)
+                        # Handle case where channels is not defined
+                        if local_uri not in new_channels:
+                            new_channels.append(local_uri)
 
-                        backend["channels"] = new_channels
-                        changed = new_channels != channels
+                    backend["channels"] = new_channels
+                    changed = new_channels != channels
+        if changed:
+            content = tomli_w.dumps(data)
 
-            if changed:
-                updated = tomli_w.dumps(data)
+    if changed:
+        copied_path.write_text(content, encoding="utf-8")
 
-    if updated != content:
-        path.write_text(updated, encoding="utf-8")
-
-    return copied_str
+    return copied_path
 
 
 def copytree_with_local_backend(
-    src: str | os.PathLike[str],
-    dst: str | os.PathLike[str],
+    src: os.PathLike[str],
+    dst: os.PathLike[str],
     **kwargs: Any,
-) -> str:
+) -> Path:
+    # Remove existing .pixi folders
+    shutil.rmtree(Path(src).joinpath(".pixi"), ignore_errors=True)
+
     kwargs.setdefault("copy_function", copy_manifest)
-    copied_tree = shutil.copytree(src, dst, **kwargs)
-    return str(copied_tree)
+    return Path(shutil.copytree(src, dst, **kwargs))
 
 
 @dataclass

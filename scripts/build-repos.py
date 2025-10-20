@@ -10,7 +10,6 @@ This script:
 """
 
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -107,10 +106,6 @@ def build_executables(repo_path: Path) -> None:
 def create_channel(repo_path: Path, project_root: Path) -> None:
     """Create the local testsuite channel and move it into this repository."""
     channel_source = repo_path / "artifacts-channel"
-
-    if channel_source.exists():
-        print("🧹 Removing existing channel directory before rebuilding")
-        shutil.rmtree(channel_source)
 
     print("📦 Creating channel")
     returncode, stdout, stderr = run_command(["pixi", "run", "create-channel"], cwd=repo_path)
