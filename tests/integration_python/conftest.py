@@ -81,7 +81,7 @@ def examples_dir() -> Path:
 def simple_workspace(
     tmp_pixi_workspace: Path,
     request: pytest.FixtureRequest,
-    local_backend_channel_uri: str | None,
+    local_backend_channel_uri: str,
 ) -> Workspace:
     name = request.node.name
 
