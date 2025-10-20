@@ -7,7 +7,58 @@ from typing import Any, cast
 import dotenv
 import pytest
 
-from .common import CURRENT_PLATFORM, Workspace, exec_extension, repo_root
+from urllib.parse import urlparse, unquote
+from urllib.request import url2pathname
+
+from .common import (
+    CURRENT_PLATFORM,
+    Workspace,
+    exec_extension,
+    get_local_backend_channel,
+    repo_root,
+)
+
+
+@pytest.fixture(scope="session")
+def local_backend_channel_dir() -> Path:
+    channel_uri = get_local_backend_channel()
+    if channel_uri is None:
+        raise RuntimeError(
+            "Local pixi-build-backends channel not found. Run 'pixi run build-repos' "
+            "or 'pixi run download-artifacts --repo pixi-build-backends' before running tests."
+        )
+    parsed = urlparse(channel_uri)
+    if parsed.scheme != "file":
+        raise RuntimeError(
+            f"Local backend channel must be a file URI, got '{channel_uri}'. "
+            "Update BUILD_BACKENDS_REPO to point to a local channel."
+        )
+
+    path_str = url2pathname(parsed.path)
+    if (
+        len(path_str) >= 3
+        and path_str[0] in {"/", "\\"}
+        and path_str[1].isalpha()
+        and path_str[2] == ":"
+    ):
+        # Drop leading slash that urlparse adds before the drive letter on Windows file URIs.
+        path_str = path_str[1:]
+    if parsed.netloc:
+        # Preserve UNC host if present.
+        path_str = f"//{parsed.netloc}{path_str}"
+
+    channel_dir = Path(unquote(path_str))
+    if not channel_dir.is_dir() or not any(channel_dir.rglob("repodata.json")):
+        raise RuntimeError(
+            f"Local backend channel at '{channel_dir}' is missing repodata.json. "
+            "Recreate it with 'pixi run build-repos' or re-download the artifacts."
+        )
+    return channel_dir
+
+
+@pytest.fixture(scope="session")
+def local_backend_channel_uri(local_backend_channel_dir: Path) -> str:
+    return local_backend_channel_dir.as_uri()
 
 
 @pytest.fixture
@@ -27,7 +78,11 @@ def examples_dir() -> Path:
 
 
 @pytest.fixture
-def simple_workspace(tmp_pixi_workspace: Path, request: pytest.FixtureRequest) -> Workspace:
+def simple_workspace(
+    tmp_pixi_workspace: Path,
+    request: pytest.FixtureRequest,
+    local_backend_channel_uri: str,
+) -> Workspace:
     name = request.node.name
 
     workspace_dir = tmp_pixi_workspace.joinpath("workspace")
@@ -44,7 +99,7 @@ def simple_workspace(tmp_pixi_workspace: Path, request: pytest.FixtureRequest) -
     workspace_manifest = {
         "workspace": {
             "channels": [
-                "https://prefix.dev/pixi-build-backends",
+                local_backend_channel_uri,
                 "https://prefix.dev/conda-forge",
             ],
             "preview": ["pixi-build"],
@@ -58,7 +113,14 @@ def simple_workspace(tmp_pixi_workspace: Path, request: pytest.FixtureRequest) -
             "name": name,
             "version": "1.0.0",
             "build": {
-                "backend": {"name": "pixi-build-rattler-build", "version": "*"},
+                "backend": {
+                    "name": "pixi-build-rattler-build",
+                    "version": "*",
+                    "channels": [
+                        local_backend_channel_uri,
+                        "https://prefix.dev/conda-forge",
+                    ],
+                },
                 "configuration": {"debug-dir": str(debug_dir)},
             },
         },
@@ -216,71 +278,30 @@ def pixi() -> Path:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def build_backends(load_dotenv: None) -> None:
+def build_backends(
+    load_dotenv: None,
+    local_backend_channel_dir: Path | None,
+    local_backend_channel_uri: str | None,
+) -> None:
     """
-    Sets up build backend environment variables for testing.
+    Ensure build backend helpers are available for tests.
 
-    Configures PIXI_BUILD_BACKEND_OVERRIDE environment variable with paths
-    to the build backends.
-
-    Requires the BUILD_BACKENDS_BIN_DIR environment variable to be set.
-    Falls back to binaries downloaded into the artifacts directory.
+    We prefer installing backends from the local channel.
     """
-    build_backends_dir = os.getenv("BUILD_BACKENDS_BIN_DIR")
-
-    backends = [
-        "pixi-build-cmake",
-        "pixi-build-python",
-        "pixi-build-rattler-build",
-        "pixi-build-rust",
-    ]
-
-    if build_backends_dir:
-        build_backends_path = Path(build_backends_dir)
-    else:
-        project_root = repo_root()
-        candidates = [
-            project_root / "artifacts",
-            project_root / "artifacts" / "pixi-build-backends",
-        ]
-        build_backends_path = None
-        for candidate in candidates:
-            if not candidate.is_dir():
-                continue
-            if all((candidate / exec_extension(backend)).is_file() for backend in backends):
-                build_backends_path = candidate
-                break
-
-        if build_backends_path is not None:
-            os.environ["BUILD_BACKENDS_BIN_DIR"] = str(build_backends_path)
-            build_backends_dir = os.environ["BUILD_BACKENDS_BIN_DIR"]
-
-    if build_backends_dir is None and build_backends_path is None:
-        raise ValueError(
-            "Could not determine build backend locations. Set BUILD_BACKENDS_BIN_DIR or run "
-            "'pixi run download-artifacts --repo pixi-build-backends'."
+    if local_backend_channel_dir is not None and not any(
+        local_backend_channel_dir.rglob("repodata.json")
+    ):
+        raise RuntimeError(
+            f"Local backend channel at '{local_backend_channel_dir}' is missing repodata.json. "
+            "Recreate it with 'pixi run build-repos' or re-download the artifacts."
         )
 
-    if build_backends_path is None or not build_backends_path.is_dir():
-        raise ValueError(
-            f"BUILD_BACKENDS_BIN_DIR points to '{build_backends_dir}' which is not a valid directory. "
-            "Please set it to a directory that exists and contains build backend definitions."
+    if os.getenv("BUILD_BACKENDS_BIN_DIR"):
+        raise RuntimeError(
+            "BUILD_BACKENDS_BIN_DIR is no longer supported. Remove it to rely on the packaged channel."
         )
 
-    # Build the override string in the format: tool_name=/path/to/executable::tool_name2=...
-    override_parts = []
-    for backend in backends:
-        backend_path = build_backends_path / exec_extension(backend)
-        if not backend_path.is_file():
-            raise FileNotFoundError(
-                f"'{backend}' not found at '{backend_path}'. Set BUILD_BACKENDS_BIN_DIR "
-                "or run 'pixi run download-artifacts --repo pixi-build-backends'."
-            )
-
-        override_parts.append(f"{backend}={backend_path}")
-
-    override_value = ",".join(override_parts)
-    os.environ["PIXI_BUILD_BACKEND_OVERRIDE"] = override_value
+    os.environ.pop("PIXI_BUILD_BACKEND_OVERRIDE", None)
 
 
 @pytest.fixture

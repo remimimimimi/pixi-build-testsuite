@@ -139,48 +139,27 @@ def download_and_extract_artifact(
             console.print(f"[green]Successfully downloaded pixi binary to: {final_path}")
 
         elif repo == "prefix-dev/pixi-build-backends":
-            # Extract all pixi-build-* executables
-            backend_executables = []
-            is_windows = sys.platform.startswith("win")
-
+            # Find the pixi binary
+            is_channel = None
             for file_name in file_list:
-                base_name = Path(file_name).name
-                if base_name.startswith("pixi-build-"):
-                    # On Windows, expect .exe extension; on others, no extension
-                    if is_windows and base_name.endswith(".exe"):
-                        backend_executables.append(file_name)
-                    elif not is_windows and not base_name.endswith(".exe") and "." not in base_name:
-                        backend_executables.append(file_name)
+                if file_name.endswith("repodata.json"):
+                    is_channel = True
+                    break
 
-            if not backend_executables:
-                console.print("[red]Could not find any pixi-build-* executables in archive")
-                raise FileNotFoundError(
-                    f"Could not find any pixi-build-* executables in archive. Archive contents: {file_list}"
-                )
+            if not is_channel:
+                console.print("[red]Could not locate a channel directory inside the artifact.")
+                raise FileNotFoundError("Could not locate a channel directory inside the artifact.")
 
-            console.print(f"[blue]Found {len(backend_executables)} backend executable(s)")
+            console.print("[blue]Detected backend channel artifact")
+            final_channel_path = output_dir / "pixi-build-backends"
+            if final_channel_path.exists():
+                console.print(f"[yellow]Removing existing channel at {final_channel_path}")
+                shutil.rmtree(final_channel_path)
 
-            # Extract all executables
-            for executable in backend_executables:
-                final_path = output_dir / Path(executable).name
-                if final_path.exists():
-                    if final_path.is_dir():
-                        shutil.rmtree(final_path)
-                    else:
-                        final_path.unlink()
+            final_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            zip_ref.extractall(final_channel_path)
 
-                zip_ref.extract(executable, output_dir)
-                extracted_path = output_dir / executable
-
-                if extracted_path != final_path:
-                    extracted_path.rename(final_path)
-
-                # Make executable on Unix systems
-                if not sys.platform.startswith("win"):
-                    final_path.chmod(0o755)
-
-                console.print(f"[green]Extracted executable: {final_path}")
-
+            console.print(f"[green]Channel is ready at: {final_channel_path}")
         else:
             raise ValueError(f"Unsupported repository: {repo}")
 

@@ -1,9 +1,8 @@
-import shutil
 from pathlib import Path
 
 import pytest
 
-from .common import get_manifest, repo_root, verify_cli_command
+from .common import copytree_with_local_backend, get_manifest, repo_root, verify_cli_command
 
 
 @pytest.mark.slow
@@ -18,11 +17,8 @@ from .common import get_manifest, repo_root, verify_cli_command
     ],
 )
 def test_pixi_minimal_backend(pixi_project: Path, pixi: Path, tmp_pixi_workspace: Path) -> None:
-    # Remove existing .pixi folders
-    shutil.rmtree(pixi_project.joinpath(".pixi"), ignore_errors=True)
-
     # Copy to workspace
-    shutil.copytree(pixi_project, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(pixi_project, tmp_pixi_workspace, dirs_exist_ok=True)
 
     # Get manifest
     manifest = get_manifest(tmp_pixi_workspace)
@@ -37,9 +33,6 @@ def test_pixi_minimal_backend(pixi_project: Path, pixi: Path, tmp_pixi_workspace
 # Enable after the backends have been released
 # def test_nameless_versionless(pixi: Path, tmp_pixi_workspace: Path):
 #     project_dir = repo_root().joinpath("tests", "data", "pixi_build", "name-and-version-less-package")
-#
-#     # Remove existing .pixi folders
-#     shutil.rmtree(project_dir.joinpath(".pixi"), ignore_errors=True)
 #
 #     # Copy to workspace
 #     shutil.copytree(project_dir, tmp_pixi_workspace, dirs_exist_ok=True)

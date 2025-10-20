@@ -35,12 +35,26 @@ class PixiBuildError(Exception):
     pass
 
 
+class PixiChannelError(Exception):
+    """Raised when creating the testsuite channel fails."""
+
+    pass
+
+
 def run_command(
-    cmd: list[str], cwd: Path | None = None, capture_output: bool = True
+    cmd: list[str],
+    cwd: Path | None = None,
+    capture_output: bool = True,
+    env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run a command and return exit code, stdout, and stderr."""
-    result = subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=True)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=True, env=env)
     return result.returncode, result.stdout, result.stderr
+
+
+def executable_name(base: str) -> str:
+    """Return the platform specific executable name."""
+    return f"{base}.exe" if sys.platform.startswith("win") else base
 
 
 def is_git_worktree(path: Path) -> bool:
@@ -89,6 +103,30 @@ def build_executables(repo_path: Path) -> None:
         raise PixiBuildError(error_msg)
 
 
+def create_channel(repo_path: Path, project_root: Path) -> None:
+    """Create the local testsuite channel and move it into this repository."""
+    channel_source = repo_path / "artifacts-channel"
+
+    print("📦 Creating channel")
+    returncode, stdout, stderr = run_command(["pixi", "run", "create-channel"], cwd=repo_path)
+
+    if returncode != 0:
+        error_msg = "Failed to create testsuite channel"
+        if stderr:
+            error_msg += f": {stderr}"
+        if stdout:
+            error_msg += f" (Output: {stdout})"
+        raise PixiChannelError(error_msg)
+
+    if not channel_source.exists():
+        raise PixiChannelError(
+            f"Expected channel directory '{channel_source}' was not created. "
+            "Verify that 'pixi run create-channel' completed successfully."
+        )
+
+    print("✅ Testsuite channel ready at source repo")
+
+
 def process_repository(repo_path: Path, repo_name: str) -> None:
     """Process a single repository: verify, pull if on main, and build."""
     print(f"\n{'=' * 60}")
@@ -112,14 +150,12 @@ def process_repository(repo_path: Path, repo_name: str) -> None:
     else:
         print("⚠️  Could not determine current branch")
 
-    # Run pixi build
-    build_executables(repo_path)
-
 
 def main() -> None:
     """Main function to process repositories."""
     # Load environment variables from .env file
-    env_file = Path(__file__).parent.parent / ".env"
+    project_root = Path(__file__).parent.parent
+    env_file = project_root / ".env"
     if env_file.exists():
         load_dotenv(env_file, override=True)
         print(f"✅ Loaded environment variables from {env_file}")
@@ -150,12 +186,14 @@ def main() -> None:
 
     try:
         process_repository(pixi_repo_path, "PIXI_REPO")
+        build_executables(pixi_repo_path)
     except Exception as e:
         print(f"❌ Error processing PIXI_REPO: {e}")
         success = False
 
     try:
         process_repository(build_backends_repo_path, "BUILD_BACKENDS_REPO")
+        create_channel(build_backends_repo_path, project_root)
     except Exception as e:
         print(f"❌ Error processing BUILD_BACKENDS_REPO: {e}")
         success = False

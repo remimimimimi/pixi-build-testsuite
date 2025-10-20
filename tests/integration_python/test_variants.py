@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 
 import pytest
@@ -6,7 +5,7 @@ import rattler
 import tomli_w
 import tomllib
 
-from .common import CURRENT_PLATFORM, verify_cli_command
+from .common import CURRENT_PLATFORM, copytree_with_local_backend, verify_cli_command
 
 
 @pytest.mark.parametrize(
@@ -21,7 +20,7 @@ def test_inline_variants_produce_multiple_outputs(
     workspace_dirname: str,
 ) -> None:
     test_workspace = build_data.joinpath(workspace_dirname)
-    shutil.copytree(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
 
     manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
     manifest = tomllib.loads(manifest_path.read_text())
@@ -64,7 +63,7 @@ def test_inline_variants_change_triggers_rebuild(
     workspace_dirname: str,
 ) -> None:
     test_workspace = build_data.joinpath(workspace_dirname)
-    shutil.copytree(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
 
     manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
     manifest = tomllib.loads(manifest_path.read_text())
@@ -113,7 +112,7 @@ def test_variant_files_produce_multiple_outputs(
     workspace_dirname: str,
 ) -> None:
     test_workspace = build_data.joinpath(workspace_dirname)
-    shutil.copytree(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
 
     manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
     manifest = tomllib.loads(manifest_path.read_text())
@@ -159,7 +158,7 @@ def test_variant_files_change_triggers_rebuild(
     workspace_dirname: str,
 ) -> None:
     test_workspace = build_data.joinpath(workspace_dirname)
-    shutil.copytree(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
+    copytree_with_local_backend(test_workspace, tmp_pixi_workspace, dirs_exist_ok=True)
 
     manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
     manifest = tomllib.loads(manifest_path.read_text())
