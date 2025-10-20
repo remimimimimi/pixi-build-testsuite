@@ -1,5 +1,4 @@
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +18,6 @@ ROS_PACKAGE_OUTPUT_NAMES = {
 
 def _prepare_ros_workspace(build_data: Path, tmp_pixi_workspace: Path) -> Path:
     workspace_src = build_data.joinpath(ROS_WORKSPACE_NAME)
-    shutil.rmtree(workspace_src.joinpath(".pixi"), ignore_errors=True)
     copytree_with_local_backend(workspace_src, tmp_pixi_workspace, dirs_exist_ok=True)
     return tmp_pixi_workspace
 
@@ -52,7 +50,6 @@ def test_ros_packages_build(
 ) -> None:
     workspace = _prepare_ros_workspace(build_data, tmp_pixi_workspace)
     output_dir = workspace.joinpath("dist")
-    shutil.rmtree(output_dir, ignore_errors=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     manifest_path = workspace.joinpath("src", package_dir, "pixi.toml")
@@ -77,7 +74,6 @@ def test_ros_packages_build(
 def test_ros_input_globs(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> None:
     workspace = _prepare_ros_workspace(build_data, tmp_pixi_workspace)
     output_dir = workspace.joinpath("dist")
-    shutil.rmtree(output_dir, ignore_errors=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     manifest_path = workspace.joinpath("src", "navigator_py", "pixi.toml")
@@ -104,7 +100,6 @@ def test_ros_rebuild_on_source_change(
 ) -> None:
     workspace = _prepare_ros_workspace(build_data, tmp_pixi_workspace)
     output_dir = workspace.joinpath("dist")
-    shutil.rmtree(output_dir, ignore_errors=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     manifest_path = workspace.joinpath("src", "talker-py", "pixi.toml")

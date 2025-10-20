@@ -1,5 +1,4 @@
 import platform
-import shutil
 from pathlib import Path
 
 import pytest
@@ -15,9 +14,6 @@ def test_pixi_build_cmake_env_config_without_target(
 
     # Copy the cmake env config test workspace
     cmake_env_test_project = test_data.joinpath("pixi_build", "env-config-cmake-test")
-
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_env_test_project.joinpath(".pixi"), ignore_errors=True)
 
     # Copy to workspace
     copytree_with_local_backend(cmake_env_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
@@ -44,9 +40,6 @@ def test_pixi_build_cmake_env_config_with_target(
 
     # Copy the target cmake env config test workspace
     cmake_target_env_test_project = test_data.joinpath("pixi_build", "env-config-target-cmake-test")
-
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_target_env_test_project.joinpath(".pixi"), ignore_errors=True)
 
     # Copy to workspace
     copytree_with_local_backend(
@@ -90,9 +83,6 @@ def test_pixi_build_cmake_invalid_config_rejection(
     # Copy the invalid config test workspace
     cmake_invalid_test_project = test_data.joinpath("pixi_build", "env-config-invalid-test")
 
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_invalid_test_project.joinpath(".pixi"), ignore_errors=True)
-
     # Copy to workspace
     copytree_with_local_backend(cmake_invalid_test_project, tmp_pixi_workspace, dirs_exist_ok=True)
 
@@ -120,9 +110,6 @@ def test_pixi_build_cmake_invalid_target_config_rejection(
     cmake_target_invalid_test_project = test_data.joinpath(
         "pixi_build", "env-config-target-invalid-test"
     )
-
-    # Remove existing .pixi folders
-    shutil.rmtree(cmake_target_invalid_test_project.joinpath(".pixi"), ignore_errors=True)
 
     # Copy to workspace
     copytree_with_local_backend(

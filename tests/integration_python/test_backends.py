@@ -34,9 +34,6 @@ def test_pixi_minimal_backend(pixi_project: Path, pixi: Path, tmp_pixi_workspace
 # def test_nameless_versionless(pixi: Path, tmp_pixi_workspace: Path):
 #     project_dir = repo_root().joinpath("tests", "data", "pixi_build", "name-and-version-less-package")
 #
-#     # Remove existing .pixi folders
-#     shutil.rmtree(project_dir.joinpath(".pixi"), ignore_errors=True)
-#
 #     # Copy to workspace
 #     shutil.copytree(project_dir, tmp_pixi_workspace, dirs_exist_ok=True)
 #

@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 
 import pytest
@@ -22,9 +21,6 @@ def test_pixi_install_examples(pixi_project: Path, pixi: Path, tmp_pixi_workspac
     This test iterates through all folders in the examples directory and verifies
     that `pixi install` completes successfully for each project.
     """
-    # Remove existing .pixi folders
-    shutil.rmtree(pixi_project.joinpath(".pixi"), ignore_errors=True)
-
     # Copy to workspace
     copytree_with_local_backend(pixi_project, tmp_pixi_workspace, dirs_exist_ok=True)
 
