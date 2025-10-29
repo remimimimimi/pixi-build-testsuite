@@ -121,7 +121,6 @@ def simple_workspace(
                         "https://prefix.dev/conda-forge",
                     ],
                 },
-                "configuration": {"debug-dir": str(debug_dir)},
             },
         },
     }
