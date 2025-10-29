@@ -130,7 +130,7 @@ class Workspace:
         work_root = self.workspace_dir.joinpath(".pixi", "build", "work")
         if work_root.is_dir():
             for entry in sorted(work_root.iterdir()):
-                debug_candidate = entry.joinpath("work").joinpath("debug")
+                debug_candidate = entry.joinpath("debug")
                 if debug_candidate.is_dir():
                     candidates.append(debug_candidate)
         return candidates
