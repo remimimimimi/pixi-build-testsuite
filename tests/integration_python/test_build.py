@@ -128,9 +128,9 @@ def test_project_model_change_trigger_rebuild(
     conda_build_params.unlink()
 
     # modify extra-input-globs
-    simple_workspace.package_manifest["package"]["build"]["configuration"].setdefault(
-        "extra-input-globs", ["*.md"]
-    )
+    simple_workspace.package_manifest["package"]["build"].setdefault(
+        "configuration", dict()
+    ).setdefault("extra-input-globs", ["*.md"])
     simple_workspace.write_files()
     verify_cli_command(
         [
