@@ -18,6 +18,7 @@ from .common import (
     exec_extension,
     get_local_backend_channel,
     repo_root,
+    copytree_with_local_backend,
 )
 
 
@@ -382,7 +383,7 @@ def local_cpp_git_repo(
     source_root = build_data.joinpath("cpp-with-path-to-source")
     repo_root = tmp_path_factory.mktemp("git-repo")
     repo_path = repo_root.joinpath("repo")
-    shutil.copytree(source_root, repo_path)
+    copytree_with_local_backend(source_root, repo_path)
 
     marker = repo_path.joinpath("project", "LOCAL_MARKER.txt")
     marker.write_text("local git fixture marker\n", encoding="utf-8")
