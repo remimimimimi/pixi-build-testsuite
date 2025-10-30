@@ -77,7 +77,9 @@ def test_no_change_should_be_fully_cached(pixi: Path, simple_workspace: Workspac
     assert simple_workspace.find_debug_file("conda_build_v1_params.json") is None
 
 
-def test_source_change_trigger_rebuild(pixi: Path, simple_workspace: Workspace) -> None:
+def test_recipe_change_trigger_metadata_invalidation(
+    pixi: Path, simple_workspace: Workspace
+) -> None:
     simple_workspace.write_files()
 
     verify_cli_command(
