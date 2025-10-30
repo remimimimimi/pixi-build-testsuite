@@ -14,6 +14,9 @@ from .common import (
 )
 
 
+BUILD_RUNNING_STRING = "Running build for recipe:"
+
+
 def test_build_conda_package(
     pixi: Path,
     simple_workspace: Workspace,
@@ -48,17 +51,15 @@ def test_no_change_should_be_fully_cached(pixi: Path, simple_workspace: Workspac
             "-v",
             "--manifest-path",
             simple_workspace.workspace_dir,
-        ]
+        ],
+        stderr_contains=BUILD_RUNNING_STRING,
     )
 
-    conda_output_params = simple_workspace.debug_dir.joinpath("conda_outputs_params.json")
-    conda_build_params = simple_workspace.debug_dir.joinpath("conda_build_v1_params.json")
+    conda_build_params = simple_workspace.find_debug_file("conda_build_v1_params.json")
 
-    assert conda_output_params.is_file()
-    assert conda_build_params.is_file()
+    assert conda_build_params is not None
 
     # Remove the files to get a clean state
-    conda_output_params.unlink()
     conda_build_params.unlink()
 
     verify_cli_command(
@@ -68,18 +69,19 @@ def test_no_change_should_be_fully_cached(pixi: Path, simple_workspace: Workspac
             "-v",
             "--manifest-path",
             simple_workspace.workspace_dir,
-        ]
+        ],
+        stderr_excludes=BUILD_RUNNING_STRING,
     )
 
-    # Everything should be cached, so no getMetadata or build call
-    assert not conda_output_params.is_file()
-    assert not conda_build_params.is_file()
+    # Everything should be cached, so no build call,
+    assert simple_workspace.find_debug_file("conda_build_v1_params.json") is None
 
 
 def test_recipe_change_trigger_metadata_invalidation(
     pixi: Path, simple_workspace: Workspace
 ) -> None:
     simple_workspace.write_files()
+
     verify_cli_command(
         [
             pixi,
@@ -88,14 +90,8 @@ def test_recipe_change_trigger_metadata_invalidation(
             "--manifest-path",
             simple_workspace.workspace_dir,
         ],
+        stderr_contains=BUILD_RUNNING_STRING,
     )
-
-    conda_output_params = simple_workspace.debug_dir.joinpath("conda_outputs_params.json")
-
-    assert conda_output_params.is_file()
-
-    # Remove the conda build params to get a clean state
-    conda_output_params.unlink()
 
     # Touch the recipe
     simple_workspace.recipe_path.touch()
@@ -108,10 +104,8 @@ def test_recipe_change_trigger_metadata_invalidation(
             "--manifest-path",
             simple_workspace.workspace_dir,
         ],
+        stderr_contains=BUILD_RUNNING_STRING,
     )
-
-    # Touching the recipe should trigger a rebuild and therefore create the file
-    assert conda_output_params.is_file()
 
 
 def test_project_model_change_trigger_rebuild(
@@ -126,19 +120,19 @@ def test_project_model_change_trigger_rebuild(
             "--manifest-path",
             simple_workspace.workspace_dir,
         ],
+        stderr_contains=BUILD_RUNNING_STRING,
     )
 
-    conda_build_params = simple_workspace.debug_dir.joinpath("conda_build_v1_params.json")
-
-    assert conda_build_params.is_file()
+    conda_build_params = simple_workspace.find_debug_file("conda_build_v1_params.json")
+    assert conda_build_params is not None
 
     # Remove the conda build params to get a clean state
     conda_build_params.unlink()
 
     # modify extra-input-globs
-    simple_workspace.package_manifest["package"]["build"]["configuration"].setdefault(
-        "extra-input-globs", ["*.md"]
-    )
+    simple_workspace.package_manifest["package"]["build"].setdefault(
+        "configuration", dict()
+    ).setdefault("extra-input-globs", ["*.md"])
     simple_workspace.write_files()
     verify_cli_command(
         [
@@ -148,10 +142,11 @@ def test_project_model_change_trigger_rebuild(
             "--manifest-path",
             simple_workspace.workspace_dir,
         ],
+        stderr_contains=BUILD_RUNNING_STRING,
     )
 
     # modifying the project model should trigger a rebuild and therefore create a file
-    assert conda_build_params.is_file()
+    assert simple_workspace.find_debug_file("conda_build_v1_params.json") is not None
 
 
 @pytest.mark.slow
