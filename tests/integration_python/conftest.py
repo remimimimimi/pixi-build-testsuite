@@ -5,20 +5,19 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 import dotenv
 import pytest
 
-from urllib.parse import urlparse, unquote
-from urllib.request import url2pathname
-
 from .common import (
     CURRENT_PLATFORM,
     Workspace,
+    copytree_with_local_backend,
     exec_extension,
     get_local_backend_channel,
     repo_root,
-    copytree_with_local_backend,
 )
 
 
@@ -361,7 +360,7 @@ def target_specific_channel_1(channels: Path) -> str:
     return channels.joinpath("target_specific_channel_1").as_uri()
 
 
-@dataclass
+@dataclass(frozen=True)
 class LocalGitRepo:
     path: Path
     main_rev: str
@@ -376,19 +375,20 @@ def local_cpp_git_repo(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> LocalGitRepo:
     """
-    Create a local git repository mirroring cpp-with-path-to-source so tests can
+    Create a local git repository mirroring the minimal pixi-build-cmake workspace so tests can
     exercise git sources without touching the network.
     """
 
-    source_root = build_data.joinpath("cpp-with-path-to-source")
+    source_root = build_data.joinpath("minimal-backend-workspaces", "pixi-build-cmake")
     repo_root = tmp_path_factory.mktemp("git-repo")
     repo_path = repo_root.joinpath("repo")
     copytree_with_local_backend(source_root, repo_path)
 
-    marker = repo_path.joinpath("project", "LOCAL_MARKER.txt")
+    marker = repo_path.joinpath("src", "LOCAL_MARKER.txt")
     marker.write_text("local git fixture marker\n", encoding="utf-8")
 
-    readme_path = repo_path.joinpath("README.md")
+    main_source_path = repo_path.joinpath("src", "main.cpp")
+    original_source = main_source_path.read_text(encoding="utf-8")
 
     def run_git(*args: str) -> str:
         result = subprocess.run(
@@ -412,20 +412,24 @@ def local_cpp_git_repo(
     run_git("commit", "-m", "Initial commit")
 
     run_git("checkout", "-b", "other-feature")
-    readme_path.write_text(
-        readme_path.read_text(encoding="utf-8") + "\nLocal change on other-feature branch\n",
-        encoding="utf-8",
+    feature_text = original_source.replace(
+        "Build backend works", "Build backend works from other-feature branch"
     )
-    run_git("add", readme_path.relative_to(repo_path).as_posix())
+    if feature_text == original_source:
+        feature_text = original_source + "\n// other-feature branch tweak\n"
+    main_source_path.write_text(feature_text)
+    run_git("add", main_source_path.relative_to(repo_path).as_posix())
     run_git("commit", "-m", "Add branch change")
     other_feature_rev = run_git("rev-parse", "HEAD")
 
     run_git("checkout", "main")
-    readme_path.write_text(
-        readme_path.read_text(encoding="utf-8") + "\nLocal change on main\n",
-        encoding="utf-8",
+    main_update_text = original_source.replace(
+        "Build backend works", "Build backend works on main branch"
     )
-    run_git("add", readme_path.relative_to(repo_path).as_posix())
+    if main_update_text == original_source:
+        main_update_text = original_source + "\n// main branch tweak\n"
+    main_source_path.write_text(main_update_text)
+    run_git("add", main_source_path.relative_to(repo_path).as_posix())
     run_git("commit", "-m", "Update main")
     main_rev = run_git("rev-parse", "HEAD")
 

@@ -1,7 +1,7 @@
 import json
 import shutil
-from typing import Any, Iterator
 from pathlib import Path
+from typing import Any, Iterator
 
 import pytest
 import tomli_w
@@ -464,12 +464,16 @@ def test_source_path(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> 
     """
     Test path in `[package.build.source]`
     """
-    project = "cpp-with-path-to-source"
-    test_data = build_data.joinpath(project)
+    test_data = build_data.joinpath("minimal-backend-workspaces", "pixi-build-cmake")
 
     copytree_with_local_backend(
         test_data, tmp_pixi_workspace, dirs_exist_ok=True, copy_function=copy_manifest
     )
+
+    manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
+    manifest = tomllib.loads(manifest_path.read_text())
+    manifest.setdefault("package", {}).setdefault("build", {})["source"] = {"path": "."}
+    manifest_path.write_text(tomli_w.dumps(manifest))
 
     verify_cli_command(
         [
@@ -546,7 +550,7 @@ def configure_local_git_source(
     rev: str | None = None,
     branch: str | None = None,
     tag: str | None = None,
-    subdirectory: str = "project",
+    subdirectory: str = ".",
 ) -> None:
     manifest_path = workspace_dir / "pixi.toml"
     manifest = tomllib.loads(manifest_path.read_text())
@@ -570,7 +574,7 @@ def prepare_cpp_git_workspace(
     repo: LocalGitRepo,
     **source_kwargs: Any,
 ) -> None:
-    project = build_data.joinpath("cpp-with-git-source")
+    project = build_data.joinpath("minimal-backend-workspaces", "pixi-build-cmake")
 
     # Remove existing .pixi folders
     shutil.rmtree(project.joinpath(".pixi"), ignore_errors=True)
@@ -578,7 +582,9 @@ def prepare_cpp_git_workspace(
     # Copy to workspace
     shutil.copytree(project, workspace_dir, dirs_exist_ok=True)
 
-    configure_local_git_source(workspace_dir, repo, **source_kwargs)
+    kwargs = dict(source_kwargs)
+    kwargs.setdefault("subdirectory", ".")
+    configure_local_git_source(workspace_dir, repo, **kwargs)
 
 
 def test_target_specific_dependency(
@@ -695,6 +701,11 @@ def test_git_path_lock_update_preserves_git_source(
         tmp_pixi_workspace, build_data, local_cpp_git_repo, rev=local_cpp_git_repo.main_rev
     )
 
+    manifest_path = tmp_pixi_workspace / "pixi.toml"
+    manifest = tomllib.loads(manifest_path.read_text())
+    manifest.setdefault("dependencies", {})["zlib"] = "*"
+    manifest_path.write_text(tomli_w.dumps(manifest))
+
     lock_path = tmp_pixi_workspace / "pixi.lock"
     verify_cli_command(
         [pixi, "lock", "-v", "--manifest-path", tmp_pixi_workspace],
@@ -708,7 +719,7 @@ def test_git_path_lock_update_preserves_git_source(
             "-v",
             "--manifest-path",
             tmp_pixi_workspace,
-            "sdl2",
+            "zlib",
         ],
     )
 
@@ -735,7 +746,7 @@ def test_git_path_lock_branch_records_branch_metadata(
     assert {entry.get("branch") for entry in entries} == {"other-feature"}
     assert {entry.get("rev") for entry in entries} == {local_cpp_git_repo.other_feature_rev}
     assert all("tag" not in entry for entry in entries)
-    assert {entry.get("subdir") for entry in entries} == {"project"}
+    assert {entry.get("subdir") for entry in entries} == {"."}
 
     verify_cli_command(
         [pixi, "install", "-v", "--manifest-path", tmp_pixi_workspace, "--locked"],
@@ -743,7 +754,7 @@ def test_git_path_lock_branch_records_branch_metadata(
 
 
 @pytest.mark.slow
-def test_git_path_build_have_absolutely_no_respect_to_lock_file(
+def test_git_path_build_has_absolutely_no_respect_to_lock_file(
     pixi: Path,
     build_data: Path,
     tmp_pixi_workspace: Path,
@@ -762,13 +773,10 @@ def test_git_path_build_have_absolutely_no_respect_to_lock_file(
     assert any(local_cpp_git_repo.other_feature_rev in entry for entry in initial_sources)
 
     repo_path = local_cpp_git_repo.path
-    main_path = repo_path.joinpath("project", "src", "main.cc")
+    main_path = repo_path.joinpath("src", "main.cpp")
     verify_cli_command([pixi, "run", "git", "checkout", "other-feature"], cwd=repo_path)
     main_path.write_text(
-        main_path.read_text(encoding="utf-8").replace(
-            "Usage: sdl-example [options]", "Usage: sdl-example v2 [options]"
-        ),
-        encoding="utf-8",
+        main_path.read_text().replace("Build backend works", "Build backend works v2")
     )
     verify_cli_command(
         [pixi, "run", "git", "add", main_path.relative_to(repo_path).as_posix()],
@@ -804,14 +812,14 @@ def test_git_path_build_have_absolutely_no_respect_to_lock_file(
     work_dir = tmp_pixi_workspace / ".pixi" / "build" / "work"
     assert work_dir.exists()
 
-    target_phrase = b"Usage: sdl-example v2 [options]"
-    legacy_phrase = b"Usage: sdl-example [options]"
+    target_phrase = b"Build backend works v2"
+    legacy_phrase = b"Build backend works on main branch"
 
     def iter_candidate_files() -> Iterator[Path]:
         for path in work_dir.rglob("*"):
             if not path.is_file():
                 continue
-            if path.suffix in {".o", ".bin", ".txt", ".json"} or "sdl_example" in path.name:
+            if path.suffix in {".o", ".bin", ".txt", ".json"} or "simple-app" in path.name:
                 yield path
 
     found = []
@@ -847,7 +855,7 @@ def test_git_path_lock_tag_records_tag_metadata(
     assert {entry.get("tag") for entry in entries} == {local_cpp_git_repo.tag}
     assert {entry.get("rev") for entry in entries} == {local_cpp_git_repo.main_rev}
     assert all("branch" not in entry for entry in entries)
-    assert {entry.get("subdir") for entry in entries} == {"project"}
+    assert {entry.get("subdir") for entry in entries} == {"."}
 
     verify_cli_command(
         [pixi, "install", "-v", "--manifest-path", tmp_pixi_workspace, "--locked"],
