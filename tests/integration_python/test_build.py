@@ -459,12 +459,16 @@ def test_source_path(pixi: Path, build_data: Path, tmp_pixi_workspace: Path) -> 
     """
     Test path in `[package.build.source]`
     """
-    project = "cpp-with-path-to-source"
-    test_data = build_data.joinpath(project)
+    test_data = build_data.joinpath("minimal-backend-workspaces", "pixi-build-cmake")
 
     copytree_with_local_backend(
         test_data, tmp_pixi_workspace, dirs_exist_ok=True, copy_function=copy_manifest
     )
+
+    manifest_path = tmp_pixi_workspace.joinpath("pixi.toml")
+    manifest = tomllib.loads(manifest_path.read_text())
+    manifest.setdefault("package", {}).setdefault("build", {})["source"] = {"path": "."}
+    manifest_path.write_text(tomli_w.dumps(manifest))
 
     verify_cli_command(
         [
@@ -512,7 +516,6 @@ def test_target_specific_dependency(
 ) -> None:
     """
     Check that target-specific dependencies are not solved for on other targets.
-    Regression test for prefix-dev/pixi#4542.
     """
     project = "target-specific"
     test_data = build_data.joinpath(project)
